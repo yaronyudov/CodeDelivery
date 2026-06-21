@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from src.agents.base import Usage, call_model, inject_skills
+from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
 from src.state import PipelineState
 
 _SYSTEM = """You are the Debugger agent in a software build pipeline.
@@ -32,7 +32,7 @@ def debugger_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
         f"Plan summary: {state.get('plan', {}).get('summary', 'N/A')}"
     )
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg)
+    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 
     try:
         diagnosis = json.loads(text)

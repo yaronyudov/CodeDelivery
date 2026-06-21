@@ -192,7 +192,6 @@ def _compute_skill_context(
     for ops in overrides.values():
         added_ids.update(ops.get("add", []))
     if added_ids:
-        from ui.backend.dependencies import get_db as _get_db
         for sid in added_ids:
             if sid not in skill_map:
                 row = db.get_skill(sid)
