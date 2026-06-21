@@ -60,6 +60,18 @@ latency_histogram = _meter.create_histogram(
     "agent_latency_seconds",
     description="Wall-clock time per agent node call",
 )
+parse_failure_counter = _meter.create_counter(
+    "llm_parse_failures",
+    description="Number of LLM output parse/validation failures per agent",
+)
+run_counter = _meter.create_counter(
+    "pipeline_runs_total",
+    description="Total pipeline runs started",
+)
+ws_events_counter = _meter.create_counter(
+    "ws_events_sent",
+    description="WebSocket events published to clients",
+)
 
 
 def record_agent_usage(

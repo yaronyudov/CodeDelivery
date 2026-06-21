@@ -5,6 +5,8 @@ import json
 import uuid
 
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
+from src.agents.outputs import FileOutput
+from src.guardrails import parse_llm_json_list
 from src.state import Artifact, PipelineState
 
 _SYSTEM = """You are the Docker Compose agent in a software build pipeline.
@@ -32,28 +34,18 @@ def docker_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]
 
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=4096, **model_kwargs_from_state(state))
 
+    files = parse_llm_json_list(text, FileOutput, context="docker")
     artifacts: list[Artifact] = []
-    try:
-        files = json.loads(text)
-        for f in files:
-            ref = str(uuid.uuid4())
-            if db is not None:
-                ref = db.save_artifact(
-                    run_id=state["run_id"],
-                    kind=f.get("kind", "compose"),
-                    path=f["path"],
-                    version=1,
-                    content=f["content"],
-                )
-            artifacts.append(
-                Artifact(
-                    path=f["path"],
-                    kind=f.get("kind", "compose"),
-                    content_ref=ref,
-                    version=1,
-                )
+    for f in files:
+        ref = str(uuid.uuid4())
+        if db is not None:
+            ref = db.save_artifact(
+                run_id=state["run_id"],
+                kind=f.kind,
+                path=f.path,
+                version=1,
+                content=f.content,
             )
-    except (json.JSONDecodeError, KeyError):
-        pass
+        artifacts.append(Artifact(path=f.path, kind=f.kind, content_ref=ref, version=1))  # type: ignore[arg-type]
 
     return {"artifacts": artifacts}, usage

@@ -1,9 +1,9 @@
 """Debugger agent — diagnoses test failures and routes fixes."""
 from __future__ import annotations
 
-import json
-
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
+from src.agents.outputs import DebuggerOutput
+from src.guardrails import parse_llm_json
 from src.state import PipelineState
 
 _SYSTEM = """You are the Debugger agent in a software build pipeline.
@@ -34,19 +34,10 @@ def debugger_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
 
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 
-    try:
-        diagnosis = json.loads(text)
-    except json.JSONDecodeError:
-        diagnosis = {
-            "diagnosis": text,
-            "fix_targets": [],
-            "fix_instructions": text,
-            "escalate_to_planner": False,
-        }
-
+    diagnosis = parse_llm_json(text, DebuggerOutput, context="debugger")
     new_plan = dict(state.get("plan", {}))
-    if diagnosis.get("fix_instructions"):
-        new_plan["debug_fix_instructions"] = diagnosis["fix_instructions"]
+    if diagnosis.fix_instructions:
+        new_plan["debug_fix_instructions"] = diagnosis.fix_instructions
 
     return {
         "plan": new_plan,

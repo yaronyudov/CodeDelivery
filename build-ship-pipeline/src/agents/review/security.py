@@ -1,9 +1,9 @@
 """Security Auditor — vulnerabilities, secrets, injection, dependency CVEs."""
 from __future__ import annotations
 
-import json
-
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
+from src.agents.outputs import ReviewFinding
+from src.guardrails import parse_llm_json_list
 from src.state import Finding, PipelineState
 
 _SYSTEM = """You are a Security Auditor agent reviewing source code.
@@ -34,19 +34,9 @@ def security_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
 
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 
-    findings: list[Finding] = []
-    try:
-        raw = json.loads(text)
-        findings = [
-            Finding(
-                agent="security",
-                severity=f.get("severity", "info"),
-                message=f.get("message", ""),
-                location=f.get("location", "unknown"),
-            )
-            for f in raw
-        ]
-    except (json.JSONDecodeError, KeyError):
-        pass
-
+    parsed = parse_llm_json_list(text, ReviewFinding, context="security")
+    findings: list[Finding] = [
+        Finding(agent="security", severity=f.severity, message=f.message, location=f.location)
+        for f in parsed
+    ]
     return {"findings": findings}, usage
