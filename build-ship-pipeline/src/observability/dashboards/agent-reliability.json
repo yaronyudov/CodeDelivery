@@ -1,0 +1,72 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": {"list": []},
+  "description": "Pipeline reliability: halts, debug loops, retries",
+  "editable": true,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "title": "Total Halts",
+      "type": "stat",
+      "options": {"colorMode": "background"},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum(agent_halts_total)",
+          "legendFormat": "Halts"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "palette-classic"}}},
+      "gridPos": {"h": 6, "w": 18, "x": 6, "y": 0},
+      "id": 2,
+      "title": "Halts by Agent",
+      "type": "barchart",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum by (agent) (agent_halts_total)",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "palette-classic"}}},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 6},
+      "id": 3,
+      "title": "Halt Rate Over Time",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum by (agent, reason) (rate(agent_halts_total[5m]))",
+          "legendFormat": "{{agent}} ({{reason}})"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "tags": ["build-ship-pipeline", "agents", "reliability"],
+  "title": "Build & Ship Pipeline — Reliability",
+  "uid": "bsp-reliability",
+  "version": 1
+}

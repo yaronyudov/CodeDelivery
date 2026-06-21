@@ -1,0 +1,120 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": {"list": []},
+  "description": "Build & Ship Pipeline — Run Overview (agent plane)",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.8},
+              {"color": "red", "value": 1.0}
+            ]
+          },
+          "unit": "percentunit",
+          "max": 1
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "title": "Cost Budget Used",
+      "type": "gauge",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum(agent_cost_usd_total) / 5.0",
+          "legendFormat": "Cost utilisation"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}},
+      "title": "Steps Taken",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum(increase(agent_tokens_total[1h]))",
+          "legendFormat": "Total tokens"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "title": "Total Cost (USD)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum(agent_cost_usd_total)",
+          "legendFormat": "Total cost"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "palette-classic"}}},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "title": "Halts",
+      "type": "stat",
+      "options": {"colorMode": "background"},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum(agent_halts_total)",
+          "legendFormat": "Total halts"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "s", "color": {"mode": "palette-classic"}}},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+      "id": 5,
+      "title": "Agent Latency (p50)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "histogram_quantile(0.5, rate(agent_latency_seconds_bucket[5m]))",
+          "legendFormat": "{{agent}} p50"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "tags": ["build-ship-pipeline", "agents"],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus"
+      }
+    ]
+  },
+  "title": "Build & Ship Pipeline — Run Overview",
+  "uid": "bsp-overview",
+  "version": 1
+}

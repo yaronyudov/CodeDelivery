@@ -1,0 +1,59 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": {"list": []},
+  "description": "Per-agent cost and token consumption",
+  "editable": true,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "color": {"mode": "palette-classic"}}},
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "title": "Cost per Agent (cumulative)",
+      "type": "barchart",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum by (agent) (agent_cost_usd_total)",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "palette-classic"}}},
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "title": "Tokens per Agent (cumulative)",
+      "type": "barchart",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum by (agent) (agent_tokens_total)",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "color": {"mode": "palette-classic"}}},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 10},
+      "id": 3,
+      "title": "Cost Rate per Agent (per minute)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus"},
+          "expr": "sum by (agent) (rate(agent_cost_usd_total[1m]))",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "tags": ["build-ship-pipeline", "agents", "cost"],
+  "title": "Build & Ship Pipeline — Per-Agent Cost & Tokens",
+  "uid": "bsp-cost-tokens",
+  "version": 1
+}

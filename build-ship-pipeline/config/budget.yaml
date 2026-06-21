@@ -1,0 +1,12 @@
+budget:
+  # Global ceilings for the entire pipeline run
+  tokens_limit: 2_000_000
+  cost_limit_usd: 5.00
+  steps_limit: 120
+
+  # Absolute per-action hard ceilings (never exceeded regardless of dynamic caps)
+  hard_action_token_ceil: 60_000
+  hard_action_cost_ceil_usd: 0.50
+
+  # Debugger escalates to Planner after this many failed attempts
+  debug_max_attempts: 3
