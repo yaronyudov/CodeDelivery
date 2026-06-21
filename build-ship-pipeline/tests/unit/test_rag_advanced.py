@@ -2,6 +2,7 @@
 
 All LLM/DB interactions are faked — no network, no Postgres required.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,6 +22,7 @@ from src.rag.instrument import InstrumentedRetriever
 # Fakes
 # ---------------------------------------------------------------------------
 
+
 class FakeRetriever(Retriever):
     """Returns a fixed, query-independent result list (for composition tests)."""
 
@@ -38,7 +40,9 @@ class FakeRetriever(Retriever):
         if self._results:
             return self._results.get(query, [])[:k]
         # Default: echo a single doc whose content is the query
-        return [RetrievalResult(Document(id="d", content=query), score=1.0, retriever=self.name)][:k]
+        return [RetrievalResult(Document(id="d", content=query), score=1.0, retriever=self.name)][
+            :k
+        ]
 
     def clear(self):
         self.cleared = True
@@ -51,6 +55,7 @@ def _doc(doc_id: str, content: str = "x") -> Document:
 # ---------------------------------------------------------------------------
 # Guards
 # ---------------------------------------------------------------------------
+
 
 def test_validate_query_rejects_empty():
     with pytest.raises(RagInputError) as exc:
@@ -101,6 +106,7 @@ def test_validate_corpus_rejects_invalid(bad):
 # InstrumentedRetriever
 # ---------------------------------------------------------------------------
 
+
 def test_instrumented_preserves_inner_name():
     inner = FakeRetriever()
     wrapped = InstrumentedRetriever(inner)
@@ -122,9 +128,9 @@ def test_instrumented_enforces_query_validation():
 
 
 def test_instrumented_clamps_k():
-    inner = FakeRetriever({"q": [
-        RetrievalResult(_doc(f"d{i}"), score=1.0, retriever="fake") for i in range(200)
-    ]})
+    inner = FakeRetriever(
+        {"q": [RetrievalResult(_doc(f"d{i}"), score=1.0, retriever="fake") for i in range(200)]}
+    )
     wrapped = InstrumentedRetriever(inner)
     results = wrapped.retrieve("q", k=10_000)  # clamped to MAX_K
     assert len(results) <= MAX_K
@@ -132,12 +138,15 @@ def test_instrumented_clamps_k():
 
 def test_instrumented_drops_oversize_docs():
     from src.rag.guards import MAX_DOC_CHARS
+
     inner = FakeRetriever()
     wrapped = InstrumentedRetriever(inner)
-    wrapped.add_documents([
-        _doc("small", "ok"),
-        _doc("huge", "x" * (MAX_DOC_CHARS + 1)),
-    ])
+    wrapped.add_documents(
+        [
+            _doc("small", "ok"),
+            _doc("huge", "x" * (MAX_DOC_CHARS + 1)),
+        ]
+    )
     added_ids = {d.id for d in inner.added}
     assert "small" in added_ids
     assert "huge" not in added_ids
@@ -153,6 +162,7 @@ def test_instrumented_clear_delegates():
 # Multi-query (LLM expansion mocked)
 # ---------------------------------------------------------------------------
 
+
 def test_multi_query_merges_with_votes(monkeypatch):
     import src.rag.multi_query as mq
 
@@ -161,11 +171,13 @@ def test_multi_query_merges_with_votes(monkeypatch):
     # doc A appears for all 3 queries; doc B only for one → A should rank first
     shared = RetrievalResult(_doc("A", "shared"), score=0.5, retriever="fake")
     only_one = RetrievalResult(_doc("B", "rare"), score=0.9, retriever="fake")
-    base = FakeRetriever({
-        "original": [shared, only_one],
-        "variant one": [shared],
-        "variant two": [shared],
-    })
+    base = FakeRetriever(
+        {
+            "original": [shared, only_one],
+            "variant one": [shared],
+            "variant two": [shared],
+        }
+    )
     retriever = mq.MultiQueryRetriever(base_retriever=base, n_variants=2)
     results = retriever.retrieve("original", k=2)
     assert results[0].document.id == "A"  # 3 votes beats 1 vote
@@ -173,6 +185,7 @@ def test_multi_query_merges_with_votes(monkeypatch):
 
 def test_multi_query_empty_when_nothing_found(monkeypatch):
     import src.rag.multi_query as mq
+
     monkeypatch.setattr(mq, "_expand_query", lambda *a, **k: [])
     base = FakeRetriever({"q": []})
     retriever = mq.MultiQueryRetriever(base_retriever=base)
@@ -183,12 +196,14 @@ def test_multi_query_empty_when_nothing_found(monkeypatch):
 # Reranker (LLM scoring mocked)
 # ---------------------------------------------------------------------------
 
+
 def test_reranker_reorders_by_llm_score(monkeypatch):
     import src.rag.reranker as rr
 
     # Score "good" high, everything else low
     monkeypatch.setattr(
-        rr, "_score_one",
+        rr,
+        "_score_one",
         lambda query, content, *a, **k: 1.0 if "good" in content else 0.1,
     )
     reranker = rr.LLMReranker()
@@ -202,6 +217,7 @@ def test_reranker_reorders_by_llm_score(monkeypatch):
 
 def test_reranked_retriever_composes(monkeypatch):
     import src.rag.reranker as rr
+
     monkeypatch.setattr(rr, "_score_one", lambda *a, **k: 0.5)
     base = FakeRetriever({"q": [RetrievalResult(_doc("x", "c"), 0.2, "fake")]})
     composed = rr.RerankedRetriever(base=base, reranker=rr.LLMReranker(), fetch_k=10)
@@ -213,6 +229,7 @@ def test_reranked_retriever_composes(monkeypatch):
 # ---------------------------------------------------------------------------
 # Graph retriever (LLM extraction mocked)
 # ---------------------------------------------------------------------------
+
 
 def test_graph_bfs_finds_connected_docs(monkeypatch):
     import src.rag.graph as gr
@@ -243,8 +260,14 @@ def test_graph_bfs_finds_connected_docs(monkeypatch):
 
 def test_graph_empty_when_no_query_entities(monkeypatch):
     import src.rag.graph as gr
-    monkeypatch.setattr(gr, "_llm_call", lambda system, user, *a, **k:
-                        '{"entities":[],"relations":[]}' if "Extract" in system else "[]")
+
+    monkeypatch.setattr(
+        gr,
+        "_llm_call",
+        lambda system, user, *a, **k: (
+            '{"entities":[],"relations":[]}' if "Extract" in system else "[]"
+        ),
+    )
     retriever = gr.InMemoryGraphRetriever()
     retriever.add_documents([Document(id="d", content="text", metadata={})])
     assert retriever.retrieve("anything", k=5) == []
@@ -253,6 +276,7 @@ def test_graph_empty_when_no_query_entities(monkeypatch):
 # ---------------------------------------------------------------------------
 # Recipes (DB faked)
 # ---------------------------------------------------------------------------
+
 
 class FakeDB:
     def __init__(self, memory=None, knowledge=None):
@@ -274,12 +298,21 @@ class FakeDB:
 
 def test_retrieve_similar_plans_returns_context():
     from src.rag.recipes import retrieve_similar_plans
-    db = FakeDB(memory=[
-        {"kind": "past_plan", "key": "build a JWT auth service",
-         "value": {"summary": "JWT auth with bcrypt", "tech_stack": ["fastapi", "jwt"]}},
-        {"kind": "past_plan", "key": "build an ETL pipeline",
-         "value": {"summary": "CSV to parquet", "tech_stack": ["pandas"]}},
-    ])
+
+    db = FakeDB(
+        memory=[
+            {
+                "kind": "past_plan",
+                "key": "build a JWT auth service",
+                "value": {"summary": "JWT auth with bcrypt", "tech_stack": ["fastapi", "jwt"]},
+            },
+            {
+                "kind": "past_plan",
+                "key": "build an ETL pipeline",
+                "value": {"summary": "CSV to parquet", "tech_stack": ["pandas"]},
+            },
+        ]
+    )
     ctx = retrieve_similar_plans("I need JWT authentication", db, k=1)
     assert "Similar past plans" in ctx
     assert "JWT" in ctx
@@ -287,20 +320,28 @@ def test_retrieve_similar_plans_returns_context():
 
 def test_retrieve_similar_plans_empty_db():
     from src.rag.recipes import retrieve_similar_plans
+
     assert retrieve_similar_plans("anything", FakeDB(memory=[]), k=3) == ""
 
 
 def test_retrieve_similar_plans_none_db():
     from src.rag.recipes import retrieve_similar_plans
+
     assert retrieve_similar_plans("anything", None) == ""
 
 
 def test_retrieve_debug_lessons():
     from src.rag.recipes import retrieve_debug_lessons
-    db = FakeDB(memory=[
-        {"kind": "lesson", "key": "k",
-         "value": {"lessons": [{"message": "missing await caused timeout"}]}},
-    ])
+
+    db = FakeDB(
+        memory=[
+            {
+                "kind": "lesson",
+                "key": "k",
+                "value": {"lessons": [{"message": "missing await caused timeout"}]},
+            },
+        ]
+    )
     ctx = retrieve_debug_lessons(["TimeoutError: await missing"], db, k=1)
     assert "Lessons from past similar failures" in ctx
     assert "await" in ctx
@@ -308,11 +349,14 @@ def test_retrieve_debug_lessons():
 
 def test_retrieve_security_context_filters_topics():
     from src.rag.recipes import retrieve_security_context
-    db = FakeDB(knowledge=[
-        {"topic": "known_cves", "payload": {"cve": "CVE-2021-1234 SQL injection in login"}},
-        {"topic": "codebase_map", "payload": {"map": "auth module handles login"}},
-        {"topic": "irrelevant", "payload": {"x": "should be filtered out"}},
-    ])
+
+    db = FakeDB(
+        knowledge=[
+            {"topic": "known_cves", "payload": {"cve": "CVE-2021-1234 SQL injection in login"}},
+            {"topic": "codebase_map", "payload": {"map": "auth module handles login"}},
+            {"topic": "irrelevant", "payload": {"x": "should be filtered out"}},
+        ]
+    )
     ctx = retrieve_security_context("SQL injection login", db, run_id="run1", k=2)
     assert "security context" in ctx.lower()
     assert "CVE-2021-1234" in ctx
@@ -320,6 +364,7 @@ def test_retrieve_security_context_filters_topics():
 
 def test_persist_run_memory_writes_plan_and_lesson():
     from src.rag.recipes import persist_run_memory
+
     db = FakeDB()
     state = {
         "run_id": "r1",
@@ -327,7 +372,12 @@ def test_persist_run_memory_writes_plan_and_lesson():
         "plan": {"summary": "JWT auth", "tech_stack": ["fastapi"], "tasks": []},
         "verdict": "minor",
         "findings": [
-            {"agent": "security", "severity": "critical", "message": "hardcoded secret", "location": "x"},
+            {
+                "agent": "security",
+                "severity": "critical",
+                "message": "hardcoded secret",
+                "location": "x",
+            },
             {"agent": "style", "severity": "info", "message": "nit", "location": "y"},
         ],
     }
@@ -343,6 +393,7 @@ def test_persist_run_memory_writes_plan_and_lesson():
 
 def test_persist_run_memory_none_db():
     from src.rag.recipes import persist_run_memory
+
     assert persist_run_memory({"run_id": "r"}, None) is False
 
 

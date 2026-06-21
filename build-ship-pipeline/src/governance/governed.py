@@ -1,4 +1,5 @@
 """governed() decorator that wraps every LangGraph node with budget enforcement."""
+
 from __future__ import annotations
 
 import time
@@ -58,7 +59,13 @@ def governed(agent_name: str, db: Any = None) -> Callable:
                     return {
                         "phase": "halted",
                         "halt_reason": str(exc),
-                        "audit": [{"agent": agent_name, "halt": str(exc), "step": state["budget"]["steps_taken"]}],
+                        "audit": [
+                            {
+                                "agent": agent_name,
+                                "halt": str(exc),
+                                "step": state["budget"]["steps_taken"],
+                            }
+                        ],
                     }
 
                 t0 = time.perf_counter()

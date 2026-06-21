@@ -1,4 +1,5 @@
 """Run management endpoints: start, stop, approve, history."""
+
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from src.nodes.approval import register_run, signal_approval
 from src.state import _ALL_AGENTS, initial_state
 from ui.backend.dependencies import get_current_user, get_db
-from ui.backend.models import ApproveRequest, RunSummary, RunSkillOverride, StartRunRequest, TokenData
+from ui.backend.models import (
+    ApproveRequest,
+    RunSummary,
+    StartRunRequest,
+    TokenData,
+)
 from ui.backend.ws import create_queue, publish
 
 logger = logging.getLogger(__name__)
@@ -160,6 +166,7 @@ async def reject_run(
 
 # ── Pipeline execution ────────────────────────────────────────────────────────
 
+
 def _compute_skill_context(
     overrides: dict,
     db,
@@ -241,8 +248,13 @@ async def _run_pipeline(
 ) -> None:
     """Async wrapper — offloads the blocking pipeline to a worker thread."""
     await asyncio.to_thread(
-        _run_pipeline_sync, run_id, feature_request, model_config, require_approval,
-        skill_context or {}, enabled_agents,
+        _run_pipeline_sync,
+        run_id,
+        feature_request,
+        model_config,
+        require_approval,
+        skill_context or {},
+        enabled_agents,
     )
 
 
@@ -294,38 +306,49 @@ def _run_pipeline_sync(
             audit_entries = node_result.get("audit", [])
             if audit_entries:
                 entry = audit_entries[-1]
-                publish(run_id, {
-                    "type": "step",
-                    "agent": entry.get("agent", node_name),
-                    "phase": phase,
-                    "step": entry.get("step", budget.get("steps_taken", 0)),
-                    "tokens": entry.get("tokens", 0),
-                    "cost_usd": entry.get("cost_usd", 0.0),
-                    "latency_s": entry.get("latency_s", 0.0),
-                })
+                publish(
+                    run_id,
+                    {
+                        "type": "step",
+                        "agent": entry.get("agent", node_name),
+                        "phase": phase,
+                        "step": entry.get("step", budget.get("steps_taken", 0)),
+                        "tokens": entry.get("tokens", 0),
+                        "cost_usd": entry.get("cost_usd", 0.0),
+                        "latency_s": entry.get("latency_s", 0.0),
+                    },
+                )
 
             # Emit budget snapshot
             if budget:
-                publish(run_id, {
-                    "type": "budget",
-                    "tokens_used": budget.get("tokens_used", 0),
-                    "cost_used_usd": budget.get("cost_used_usd", 0.0),
-                    "steps_taken": budget.get("steps_taken", 0),
-                })
+                publish(
+                    run_id,
+                    {
+                        "type": "budget",
+                        "tokens_used": budget.get("tokens_used", 0),
+                        "cost_used_usd": budget.get("cost_used_usd", 0.0),
+                        "steps_taken": budget.get("steps_taken", 0),
+                    },
+                )
 
             # Emit new artifacts
             for artifact in node_result.get("artifacts", []):
-                publish(run_id, {"type": "artifact", "path": artifact["path"], "kind": artifact["kind"]})
+                publish(
+                    run_id, {"type": "artifact", "path": artifact["path"], "kind": artifact["kind"]}
+                )
 
             # Emit new findings
             for finding in node_result.get("findings", []):
-                publish(run_id, {
-                    "type": "finding",
-                    "severity": finding["severity"],
-                    "agent": finding["agent"],
-                    "message": finding["message"],
-                    "location": finding["location"],
-                })
+                publish(
+                    run_id,
+                    {
+                        "type": "finding",
+                        "severity": finding["severity"],
+                        "agent": finding["agent"],
+                        "message": finding["message"],
+                        "location": finding["location"],
+                    },
+                )
 
             # Emit approval_required
             if node_name == "approval_gate" and node_result.get("approval_status") == "pending":
@@ -333,7 +356,9 @@ def _run_pipeline_sync(
 
             if phase == "halted":
                 final_status = "halted"
-                publish(run_id, {"type": "halt", "reason": node_result.get("halt_reason", "unknown")})
+                publish(
+                    run_id, {"type": "halt", "reason": node_result.get("halt_reason", "unknown")}
+                )
                 break
 
             if phase == "done":
@@ -342,14 +367,20 @@ def _run_pipeline_sync(
     except Exception:
         logger.exception("Pipeline %s failed", run_id)
         final_status = "halted"
-        publish(run_id, {"type": "error", "message": "Pipeline encountered an error. Check server logs."})
+        publish(
+            run_id,
+            {"type": "error", "message": "Pipeline encountered an error. Check server logs."},
+        )
 
     finally:
         _stop_flags.pop(run_id, None)
         db.finish_run(run_id, status=final_status, verdict=verdict)
         if final_status == "done":
-            publish(run_id, {
-                "type": "done",
-                "verdict": verdict or "clean",
-                "cost_total": 0.0,
-            })
+            publish(
+                run_id,
+                {
+                    "type": "done",
+                    "verdict": verdict or "clean",
+                    "cost_total": 0.0,
+                },
+            )

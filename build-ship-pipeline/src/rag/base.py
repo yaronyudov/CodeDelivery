@@ -1,4 +1,5 @@
 """Core types shared across all RAG retrievers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -8,17 +9,18 @@ from typing import Any
 @dataclass
 class Document:
     """A single retrievable unit of text."""
-    id: str                             # stable source document identifier
-    content: str                        # text content of this chunk
+
+    id: str  # stable source document identifier
+    content: str  # text content of this chunk
     metadata: dict[str, Any] = field(default_factory=dict)
-    chunk_index: int = 0                # position within the source document
+    chunk_index: int = 0  # position within the source document
 
 
 @dataclass
 class RetrievalResult:
     document: Document
-    score: float                        # higher = more relevant (normalised to 0–1 where possible)
-    retriever: str                      # which strategy produced this result
+    score: float  # higher = more relevant (normalised to 0–1 where possible)
+    retriever: str  # which strategy produced this result
 
 
 class Retriever:

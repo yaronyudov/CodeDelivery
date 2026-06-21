@@ -1,4 +1,5 @@
 """Test Coverage Inspector — coverage gaps, missing edge cases, flaky tests."""
+
 from __future__ import annotations
 
 import json
@@ -30,12 +31,11 @@ def coverage_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
     test_paths = [a["path"] for a in state.get("artifacts", []) if a["kind"] == "test"]
     code_paths = [a["path"] for a in state.get("artifacts", []) if a["kind"] == "code"]
 
-    user_msg = (
-        f"Code files:\n{json.dumps(code_paths)}\n\n"
-        f"Test files:\n{json.dumps(test_paths)}"
-    )
+    user_msg = f"Code files:\n{json.dumps(code_paths)}\n\nTest files:\n{json.dumps(test_paths)}"
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state)
+    )
 
     parsed = parse_llm_json_list(text, ReviewFinding, context="coverage")
     findings: list[Finding] = [

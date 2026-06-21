@@ -1,4 +1,5 @@
 """Style Checker — conventions, readability, lint/format compliance."""
+
 from __future__ import annotations
 
 import json
@@ -29,11 +30,11 @@ Return [] if no issues found. Respond ONLY with the JSON array."""
 
 def style_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
     artifact_paths = [a["path"] for a in state.get("artifacts", []) if a["kind"] == "code"]
-    user_msg = (
-        f"Review these source files for style issues:\n{json.dumps(artifact_paths)}"
-    )
+    user_msg = f"Review these source files for style issues:\n{json.dumps(artifact_paths)}"
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state)
+    )
 
     parsed = parse_llm_json_list(text, ReviewFinding, context="style")
     findings: list[Finding] = [

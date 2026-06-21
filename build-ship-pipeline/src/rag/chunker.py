@@ -8,6 +8,7 @@ larger = more context per result.  Three strategies are provided:
 - RecursiveChunker  — tries paragraph → line → word splits until target size
                       (mirrors LangChain RecursiveCharacterTextSplitter)
 """
+
 from __future__ import annotations
 
 import re
@@ -29,7 +30,9 @@ class FixedChunker:
         idx = 0
         while start < len(content):
             end = min(start + self.chunk_size, len(content))
-            chunks.append(Document(id=doc_id, content=content[start:end], metadata=meta, chunk_index=idx))
+            chunks.append(
+                Document(id=doc_id, content=content[start:end], metadata=meta, chunk_index=idx)
+            )
             if end == len(content):
                 break
             start = end - self.overlap
@@ -55,8 +58,10 @@ class SentenceChunker:
         idx = 0
         i = 0
         while i < len(sentences):
-            window = sentences[i: i + self.max_sentences]
-            chunks.append(Document(id=doc_id, content=" ".join(window), metadata=meta, chunk_index=idx))
+            window = sentences[i : i + self.max_sentences]
+            chunks.append(
+                Document(id=doc_id, content=" ".join(window), metadata=meta, chunk_index=idx)
+            )
             i += max(1, self.max_sentences - self.overlap)
             idx += 1
         return chunks
@@ -115,7 +120,7 @@ class RecursiveChunker:
         if self.overlap > 0 and len(chunks) > 1:
             overlapped: list[str] = [chunks[0]]
             for i in range(1, len(chunks)):
-                tail = chunks[i - 1][-self.overlap:]
+                tail = chunks[i - 1][-self.overlap :]
                 overlapped.append(tail + chunks[i])
             return overlapped
         return chunks

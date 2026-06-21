@@ -33,6 +33,7 @@ Quick start
     # Or use the one-liner helper inside an agent
     context = retrieve_for_agent(query="JWT auth", state=state, db=db, k=5)
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -51,17 +52,25 @@ from src.rag.reranker import LLMReranker, RerankedRetriever
 
 __all__ = [
     # Types
-    "Document", "Retriever", "RetrievalResult",
+    "Document",
+    "Retriever",
+    "RetrievalResult",
     # Chunkers
-    "FixedChunker", "SentenceChunker", "RecursiveChunker",
+    "FixedChunker",
+    "SentenceChunker",
+    "RecursiveChunker",
     # Retrievers
-    "InMemoryBM25Retriever", "PostgresBM25Retriever",
-    "InMemoryDenseRetriever", "PgVectorRetriever",
+    "InMemoryBM25Retriever",
+    "PostgresBM25Retriever",
+    "InMemoryDenseRetriever",
+    "PgVectorRetriever",
     "HybridRetriever",
-    "InMemoryGraphRetriever", "PostgresGraphRetriever",
+    "InMemoryGraphRetriever",
+    "PostgresGraphRetriever",
     "HyDERetriever",
     "MultiQueryRetriever",
-    "LLMReranker", "RerankedRetriever",
+    "LLMReranker",
+    "RerankedRetriever",
     "InstrumentedRetriever",
     # Indexer
     "PipelineIndexer",
@@ -108,9 +117,17 @@ def create_retriever(
 
     corpus = validate_corpus(corpus)
     inner = _build_retriever(
-        strategy, pool=pool, corpus=corpus, embedding_model=embedding_model,
-        gen_model=gen_model, api_key=api_key, api_base=api_base, run_id=run_id,
-        n_variants=n_variants, fetch_k=fetch_k, max_hops=max_hops,
+        strategy,
+        pool=pool,
+        corpus=corpus,
+        embedding_model=embedding_model,
+        gen_model=gen_model,
+        api_key=api_key,
+        api_base=api_base,
+        run_id=run_id,
+        n_variants=n_variants,
+        fetch_k=fetch_k,
+        max_hops=max_hops,
     )
     return InstrumentedRetriever(inner) if instrument else inner
 
@@ -145,7 +162,9 @@ def _build_retriever(
     if s == "pgvector":
         if pool is None:
             raise ValueError("pgvector requires a pool")
-        return PgVectorRetriever(pool=pool, model=embedding_model, api_key=api_key, api_base=api_base, corpus=corpus)
+        return PgVectorRetriever(
+            pool=pool, model=embedding_model, api_key=api_key, api_base=api_base, corpus=corpus
+        )
 
     if s == "hybrid":
         bm25 = InMemoryBM25Retriever()
@@ -156,30 +175,52 @@ def _build_retriever(
         if pool is None:
             raise ValueError("hybrid_pg requires a pool")
         bm25 = PostgresBM25Retriever(pool=pool, corpus=corpus)
-        dense_r = PgVectorRetriever(pool=pool, model=embedding_model, api_key=api_key, api_base=api_base, corpus=corpus)
+        dense_r = PgVectorRetriever(
+            pool=pool, model=embedding_model, api_key=api_key, api_base=api_base, corpus=corpus
+        )
         return HybridRetriever([bm25, dense_r])
 
     if s == "graph":
-        return InMemoryGraphRetriever(model=gen_model, api_key=api_key, api_base=api_base, max_hops=max_hops)
+        return InMemoryGraphRetriever(
+            model=gen_model, api_key=api_key, api_base=api_base, max_hops=max_hops
+        )
 
     if s == "graph_pg":
         if pool is None:
             raise ValueError("graph_pg requires a pool")
-        return PostgresGraphRetriever(pool=pool, model=gen_model, api_key=api_key, api_base=api_base,
-                                       corpus=corpus or "custom", run_id=run_id, max_hops=max_hops)
+        return PostgresGraphRetriever(
+            pool=pool,
+            model=gen_model,
+            api_key=api_key,
+            api_base=api_base,
+            corpus=corpus or "custom",
+            run_id=run_id,
+            max_hops=max_hops,
+        )
 
     if s == "hyde":
         dense = InMemoryDenseRetriever(model=embedding_model, api_key=api_key, api_base=api_base)
-        return HyDERetriever(base_retriever=dense, gen_model=gen_model, api_key=api_key, api_base=api_base)
+        return HyDERetriever(
+            base_retriever=dense, gen_model=gen_model, api_key=api_key, api_base=api_base
+        )
 
     if s == "multi_query":
         bm25 = InMemoryBM25Retriever()
-        return MultiQueryRetriever(base_retriever=bm25, n_variants=n_variants,
-                                    gen_model=gen_model, api_key=api_key, api_base=api_base)
+        return MultiQueryRetriever(
+            base_retriever=bm25,
+            n_variants=n_variants,
+            gen_model=gen_model,
+            api_key=api_key,
+            api_base=api_base,
+        )
 
     if s == "reranked":
-        hybrid = HybridRetriever([InMemoryBM25Retriever(),
-                                   InMemoryDenseRetriever(model=embedding_model, api_key=api_key, api_base=api_base)])
+        hybrid = HybridRetriever(
+            [
+                InMemoryBM25Retriever(),
+                InMemoryDenseRetriever(model=embedding_model, api_key=api_key, api_base=api_base),
+            ]
+        )
         reranker = LLMReranker(model=gen_model, api_key=api_key, api_base=api_base)
         return RerankedRetriever(base=hybrid, reranker=reranker, fetch_k=fetch_k)
 
@@ -223,5 +264,6 @@ def retrieve_for_agent(
         return PipelineIndexer.format_context(results, max_chars=max_chars)
     except Exception as exc:
         import logging
+
         logging.getLogger(__name__).warning("retrieve_for_agent failed: %s", exc)
         return ""

@@ -1,8 +1,8 @@
 """Loads budget.yaml and prices.yaml at import time; exposes typed dataclasses."""
+
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -27,7 +27,7 @@ class BudgetConfig:
     debug_max_attempts: int
 
     @classmethod
-    def from_yaml(cls) -> "BudgetConfig":
+    def from_yaml(cls) -> BudgetConfig:
         raw = _load("budget.yaml")["budget"]
         return cls(
             tokens_limit=int(str(raw["tokens_limit"]).replace("_", "")),
@@ -46,7 +46,7 @@ class PricesConfig:
     expected_output_tokens: dict[str, int]
 
     @classmethod
-    def from_yaml(cls) -> "PricesConfig":
+    def from_yaml(cls) -> PricesConfig:
         raw = _load("prices.yaml")
         return cls(
             prices=raw["prices"],

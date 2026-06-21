@@ -3,6 +3,7 @@
 Call setup_tracing() once at startup.  All other symbols are module-level
 singletons used by governed() and individual agent nodes.
 """
+
 from __future__ import annotations
 
 import os
@@ -105,9 +106,7 @@ def record_rag_retrieval(retriever: str, n_results: int, latency_s: float) -> No
         rag_empty_results_counter.add(1, attrs)
 
 
-def record_agent_usage(
-    agent: str, tokens: int, cost_usd: float, latency_s: float
-) -> None:
+def record_agent_usage(agent: str, tokens: int, cost_usd: float, latency_s: float) -> None:
     """Emit all per-action metrics in one call (used by governed())."""
     attrs = {"agent": agent}
     token_counter.add(tokens, attrs)

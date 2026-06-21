@@ -1,4 +1,5 @@
 """Docker Compose agent — generates docker-compose.yml and service configs."""
+
 from __future__ import annotations
 
 import json
@@ -32,7 +33,13 @@ def docker_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]
     stack_text = ", ".join(state.get("tech_stack", []))
     user_msg = f"Build plan:\n{plan_text}\n\nTech stack: {stack_text}"
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=4096, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model,
+        inject_skills(_SYSTEM, state),
+        user_msg,
+        max_tokens=4096,
+        **model_kwargs_from_state(state),
+    )
 
     files = parse_llm_json_list(text, FileOutput, context="docker")
     artifacts: list[Artifact] = []

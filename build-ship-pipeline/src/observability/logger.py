@@ -8,6 +8,7 @@ Usage:
 All keyword arguments become top-level JSON fields.  Standard library
 logging is used under the hood so the same logger works in tests.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,10 +31,27 @@ class _JsonFormatter(logging.Formatter):
         # Extra fields injected via extra={} or structlog-style kwargs
         for key, val in record.__dict__.items():
             if key not in {
-                "name", "msg", "args", "created", "filename", "funcName",
-                "levelname", "levelno", "lineno", "module", "msecs", "message",
-                "pathname", "process", "processName", "relativeCreated",
-                "thread", "threadName", "exc_info", "exc_text", "stack_info",
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "message",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "exc_info",
+                "exc_text",
+                "stack_info",
                 "taskName",
             }:
                 base[key] = val
@@ -82,7 +100,7 @@ class _ContextLogger:
     def exception(self, msg: str, **kw: Any) -> None:
         self._log.exception(msg, extra={**self._bound, **kw})
 
-    def bind(self, **extra: Any) -> "_ContextLogger":
+    def bind(self, **extra: Any) -> _ContextLogger:
         """Return a child logger with additional bound fields."""
         return _ContextLogger(self._log.name, **{**self._bound, **extra})
 

@@ -28,6 +28,7 @@ Use cases
 Every function is defensive: any DB/LLM/validation error yields an empty
 string (or a no-op) so the pipeline never fails because of RAG.
 """
+
 from __future__ import annotations
 
 import json
@@ -59,12 +60,14 @@ def _bm25_over(rows: list[dict], to_text) -> InstrumentedRetriever:
 
 def _safe(fn):
     """Decorator: never let a recipe raise into the pipeline."""
+
     def wrapper(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
         except Exception as exc:  # noqa: BLE001 — RAG must degrade, not crash
             logger.warning("RAG recipe %s failed: %s", fn.__name__, exc)
             return ""
+
     wrapper.__name__ = fn.__name__
     return wrapper
 
@@ -72,6 +75,7 @@ def _safe(fn):
 # ---------------------------------------------------------------------------
 # Use case 1 — Planner: similar past plans
 # ---------------------------------------------------------------------------
+
 
 @_safe
 def retrieve_similar_plans(feature_request: str, db: Any, k: int = 3) -> str:
@@ -83,7 +87,7 @@ def retrieve_similar_plans(feature_request: str, db: Any, k: int = 3) -> str:
         return ""
     retriever = _bm25_over(
         rows,
-        to_text=lambda r: f"{r.get('key','')}\n{json.dumps(r.get('value', {}))}",
+        to_text=lambda r: f"{r.get('key', '')}\n{json.dumps(r.get('value', {}))}",
     )
     results = retriever.retrieve(feature_request, k=k)
     if not results:
@@ -96,6 +100,7 @@ def retrieve_similar_plans(feature_request: str, db: Any, k: int = 3) -> str:
 # Use case 2 — Debugger: lessons from past failures
 # ---------------------------------------------------------------------------
 
+
 @_safe
 def retrieve_debug_lessons(failures: list, db: Any, k: int = 3) -> str:
     """Return lessons learned from past test failures similar to *failures*."""
@@ -107,7 +112,7 @@ def retrieve_debug_lessons(failures: list, db: Any, k: int = 3) -> str:
     query = " ".join(str(f) for f in failures)[:2000]
     retriever = _bm25_over(
         rows,
-        to_text=lambda r: f"{r.get('key','')}\n{json.dumps(r.get('value', {}))}",
+        to_text=lambda r: f"{r.get('key', '')}\n{json.dumps(r.get('value', {}))}",
     )
     results = retriever.retrieve(query, k=k)
     if not results:
@@ -120,6 +125,7 @@ def retrieve_debug_lessons(failures: list, db: Any, k: int = 3) -> str:
 # Use case 3 — Coder: reusable code patterns
 # ---------------------------------------------------------------------------
 
+
 @_safe
 def retrieve_code_patterns(plan: dict, db: Any, k: int = 3) -> str:
     """Return reusable code patterns relevant to the current plan."""
@@ -128,10 +134,10 @@ def retrieve_code_patterns(plan: dict, db: Any, k: int = 3) -> str:
     rows = db.list_memory(kinds=["pattern"])
     if not rows:
         return ""
-    query = f"{plan.get('summary','')} {' '.join(plan.get('tech_stack', []))}"
+    query = f"{plan.get('summary', '')} {' '.join(plan.get('tech_stack', []))}"
     retriever = _bm25_over(
         rows,
-        to_text=lambda r: f"{r.get('key','')}\n{json.dumps(r.get('value', {}))}",
+        to_text=lambda r: f"{r.get('key', '')}\n{json.dumps(r.get('value', {}))}",
     )
     results = retriever.retrieve(query or "code pattern", k=k)
     if not results:
@@ -144,6 +150,7 @@ def retrieve_code_patterns(plan: dict, db: Any, k: int = 3) -> str:
 # Use case 4 — Security: recall over knowledge base (CVEs + codebase map)
 # ---------------------------------------------------------------------------
 
+
 @_safe
 def retrieve_security_context(query: str, db: Any, run_id: str, k: int = 5) -> str:
     """Return relevant known-CVE / codebase-map context for the security auditor."""
@@ -155,7 +162,7 @@ def retrieve_security_context(query: str, db: Any, run_id: str, k: int = 5) -> s
         return ""
     retriever = _bm25_over(
         relevant,
-        to_text=lambda r: f"{r.get('topic','')}\n{json.dumps(r.get('payload', {}))}",
+        to_text=lambda r: f"{r.get('topic', '')}\n{json.dumps(r.get('payload', {}))}",
     )
     results = retriever.retrieve(query, k=k)
     if not results:
@@ -167,6 +174,7 @@ def retrieve_security_context(query: str, db: Any, run_id: str, k: int = 5) -> s
 # ---------------------------------------------------------------------------
 # Use case 5 — Report: persist this run's plan + lesson for future runs
 # ---------------------------------------------------------------------------
+
 
 @_safe
 def persist_run_memory(state: dict, db: Any) -> bool:
@@ -207,8 +215,12 @@ def persist_run_memory(state: dict, db: Any) -> bool:
                 "run_id": run_id,
                 "feature_request": feature,
                 "lessons": [
-                    {"agent": f.get("agent"), "severity": f.get("severity"),
-                     "message": f.get("message"), "location": f.get("location")}
+                    {
+                        "agent": f.get("agent"),
+                        "severity": f.get("severity"),
+                        "message": f.get("message"),
+                        "location": f.get("location"),
+                    }
                     for f in significant
                 ],
             },

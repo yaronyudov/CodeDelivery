@@ -1,4 +1,5 @@
 """Budget guard: pre-flight enforcement before every model call."""
+
 from __future__ import annotations
 
 from src.config import PRICES_CFG
@@ -36,9 +37,7 @@ def budget_guard(
 
     # 1. STEP LIMIT
     if b["steps_taken"] >= b["steps_limit"]:
-        raise BudgetExceeded(
-            f"step limit reached ({b['steps_taken']}/{b['steps_limit']})"
-        )
+        raise BudgetExceeded(f"step limit reached ({b['steps_taken']}/{b['steps_limit']})")
 
     # 2. Recompute dynamic caps for this specific action
     tok_cap, cost_cap = compute_dynamic_caps(state, agent)
@@ -46,16 +45,12 @@ def budget_guard(
     # 3. PER-ACTION TOKEN CAP
     total_tokens = prompt_tokens + expected_out
     if total_tokens > tok_cap:
-        raise BudgetExceeded(
-            f"{agent}: token estimate {total_tokens} > per-action cap {tok_cap}"
-        )
+        raise BudgetExceeded(f"{agent}: token estimate {total_tokens} > per-action cap {tok_cap}")
 
     # 4. PER-ACTION MONEY CAP (pre-flight estimate)
     est = estimate_cost(model, prompt_tokens, expected_out)
     if est > cost_cap:
-        raise BudgetExceeded(
-            f"{agent}: est ${est:.4f} > per-action cap ${cost_cap:.4f}"
-        )
+        raise BudgetExceeded(f"{agent}: est ${est:.4f} > per-action cap ${cost_cap:.4f}")
 
     # 5. GLOBAL cost ceiling would be crossed
     if b["cost_used_usd"] + est > b["cost_limit_usd"]:

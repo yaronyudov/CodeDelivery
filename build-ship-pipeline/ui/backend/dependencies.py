@@ -1,4 +1,5 @@
 """FastAPI dependency injection — shared DB instance and current user."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, Request, status

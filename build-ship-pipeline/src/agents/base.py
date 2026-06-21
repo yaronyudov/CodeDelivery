@@ -1,4 +1,5 @@
 """Shared helpers for all agent nodes — model calls via LiteLLM."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ def call_model(
       openai/<name>              (needs api_base=<custom endpoint>)
     """
     import litellm  # lazy import — avoid loading at module level in tests
+
     litellm.suppress_debug_info = True
 
     kwargs: dict = dict(

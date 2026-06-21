@@ -1,8 +1,9 @@
 """Halt node — graceful stop that writes a partial report."""
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from src.state import PipelineState
 
@@ -28,10 +29,10 @@ def halt_node(state: PipelineState) -> dict:
             "steps_limit": budget.get("steps_limit", 0),
         },
         "audit_entries": len(state.get("audit", [])),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("PIPELINE HALTED")
     print(f"Reason: {reason}")
     print(json.dumps(report, indent=2))

@@ -1,4 +1,5 @@
 """HTTP middleware: correlation IDs and structured access logging."""
+
 from __future__ import annotations
 
 import time

@@ -1,4 +1,5 @@
 """Tester agent — generates and runs unit, integration, and E2E tests."""
+
 from __future__ import annotations
 
 import json
@@ -35,11 +36,16 @@ def tester_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]
     plan_text = json.dumps(state["plan"], indent=2)
     artifact_paths = [a["path"] for a in state.get("artifacts", [])]
     user_msg = (
-        f"Build plan:\n{plan_text}\n\n"
-        f"Artifact paths:\n{json.dumps(artifact_paths, indent=2)}"
+        f"Build plan:\n{plan_text}\n\nArtifact paths:\n{json.dumps(artifact_paths, indent=2)}"
     )
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=4096, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model,
+        inject_skills(_SYSTEM, state),
+        user_msg,
+        max_tokens=4096,
+        **model_kwargs_from_state(state),
+    )
 
     parsed = parse_llm_json(text, TesterOutput, context="tester")
     artifacts: list[Artifact] = []

@@ -1,4 +1,5 @@
 """Debugger agent — diagnoses test failures and routes fixes."""
+
 from __future__ import annotations
 
 import json
@@ -37,11 +38,14 @@ def debugger_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usag
     # RAG use case 2: recall fixes for similar past failures.
     if db is not None and failures:
         from src.rag.recipes import retrieve_debug_lessons
+
         lessons = retrieve_debug_lessons(failures, db, k=3)
         if lessons:
             user_msg += f"\n\n{lessons}"
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state)
+    )
 
     diagnosis = parse_llm_json(text, DebuggerOutput, context="debugger")
     new_plan = dict(state.get("plan", {}))

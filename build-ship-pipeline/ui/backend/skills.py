@@ -1,4 +1,5 @@
 """Skill management endpoints — CRUD for skill definitions and defaults."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -51,7 +52,10 @@ async def update_skill(
     row = db.get_skill(skill_id)
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if row["is_system"] and body.model_dump(exclude_none=True).keys() - {"prompt_addon", "is_default"}:
+    if row["is_system"] and body.model_dump(exclude_none=True).keys() - {
+        "prompt_addon",
+        "is_default",
+    }:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="System skills can only have prompt_addon and is_default changed",
@@ -67,7 +71,9 @@ async def delete_skill(skill_id: str, user: TokenData = Depends(get_current_user
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     if row["is_system"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete system skills")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete system skills"
+        )
     db.delete_skill(skill_id)
 
 

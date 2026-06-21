@@ -1,4 +1,5 @@
 """CLI entrypoint: python -m src.main 'Build a REST API for todo items'"""
+
 from __future__ import annotations
 
 import sys
@@ -9,9 +10,9 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from src.graph import build_graph
-from src.observability import setup_tracing
-from src.state import initial_state
+from src.graph import build_graph  # noqa: E402
+from src.observability import setup_tracing  # noqa: E402
+from src.state import initial_state  # noqa: E402
 
 
 def main(feature_request: str) -> None:

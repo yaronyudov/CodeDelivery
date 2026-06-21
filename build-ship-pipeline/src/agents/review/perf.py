@@ -1,4 +1,5 @@
 """Performance Analyst — hotpaths, N+1 queries, allocation, latency budgets."""
+
 from __future__ import annotations
 
 import json
@@ -35,7 +36,9 @@ def perf_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
         f"Review these artifacts for performance issues:\n{json.dumps(artifact_paths)}"
     )
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state)
+    )
 
     parsed = parse_llm_json_list(text, ReviewFinding, context="perf")
     findings: list[Finding] = [

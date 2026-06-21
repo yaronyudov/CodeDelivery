@@ -19,6 +19,7 @@ Usage inside an agent or at run start
     results = retriever.retrieve("JWT authentication", k=5)
     context = indexer.format_context(results)  # ready to append to a prompt
 """
+
 from __future__ import annotations
 
 import json
@@ -99,7 +100,7 @@ class PipelineIndexer:
         for row in rows:
             payload_text = json.dumps(row.get("payload", {}), indent=2)
             docs = self._chunker.chunk(
-                doc_id=f"knowledge:{run_id}:{row.get('topic','')}",
+                doc_id=f"knowledge:{run_id}:{row.get('topic', '')}",
                 content=payload_text,
                 metadata={"kind": "knowledge", "topic": row.get("topic", ""), "run_id": run_id},
             )
@@ -115,7 +116,7 @@ class PipelineIndexer:
         for row in rows:
             value_text = json.dumps(row.get("value", {}), indent=2)
             docs = self._chunker.chunk(
-                doc_id=f"memory:{row.get('kind','')}:{row.get('key','')}",
+                doc_id=f"memory:{row.get('kind', '')}:{row.get('key', '')}",
                 content=value_text,
                 metadata={"kind": row.get("kind", ""), "key": row.get("key", "")},
             )

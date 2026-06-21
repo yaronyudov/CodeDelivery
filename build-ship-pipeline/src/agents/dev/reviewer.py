@@ -1,4 +1,5 @@
 """Internal Reviewer agent — final dev-phase sign-off before review phase."""
+
 from __future__ import annotations
 
 import json
@@ -38,7 +39,9 @@ def reviewer_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
         f"Plan: {json.dumps(state.get('plan', {}), indent=2)}"
     )
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state)
+    )
 
     result = parse_llm_json(text, ReviewerOutput, context="reviewer")
     return {"phase": "review" if result.approved else "dev"}, usage

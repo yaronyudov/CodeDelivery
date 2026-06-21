@@ -1,4 +1,5 @@
 """Dynamic per-action cap computation based on remaining budget and agent role."""
+
 from __future__ import annotations
 
 from src.config import BUDGET_CFG

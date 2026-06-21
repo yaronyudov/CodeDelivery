@@ -4,6 +4,7 @@ Each schema covers exactly what the agent's system prompt asks for, so
 parse errors are caught early and callers always receive a typed default
 rather than a bare dict or empty list.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -13,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 # ---------------------------------------------------------------------------
 # Planner
 # ---------------------------------------------------------------------------
+
 
 class PlanTask(BaseModel):
     id: str = ""
@@ -38,6 +40,7 @@ class PlannerOutput(BaseModel):
 # Coder / Observability / Docker — they all produce file arrays
 # ---------------------------------------------------------------------------
 
+
 class FileOutput(BaseModel):
     path: str
     content: str
@@ -53,12 +56,14 @@ class FileOutput(BaseModel):
 
 class FilesOutput(BaseModel):
     """Wrapper for agents that return a JSON array of FileOutput."""
+
     files: list[FileOutput] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
 # Tester
 # ---------------------------------------------------------------------------
+
 
 class TestResults(BaseModel):
     passed: bool = False
@@ -75,6 +80,7 @@ class TesterOutput(BaseModel):
 # Debugger
 # ---------------------------------------------------------------------------
 
+
 class DebuggerOutput(BaseModel):
     diagnosis: str = ""
     fix_targets: list[str] = Field(default_factory=list)
@@ -85,6 +91,7 @@ class DebuggerOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # Reviewer (internal dev-phase sign-off)
 # ---------------------------------------------------------------------------
+
 
 class ReviewerOutput(BaseModel):
     approved: bool = False
@@ -112,12 +119,14 @@ class ReviewFinding(BaseModel):
 
 class FindingsOutput(BaseModel):
     """Wrapper for review agents that return a JSON array of findings."""
+
     findings: list[ReviewFinding] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
 # Review Supervisor
 # ---------------------------------------------------------------------------
+
 
 class SupervisorOutput(BaseModel):
     verdict: Literal["clean", "minor", "critical"] = "clean"

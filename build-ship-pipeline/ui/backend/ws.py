@@ -1,9 +1,9 @@
 """WebSocket handler — streams pipeline events to the browser in real time."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -62,9 +62,10 @@ async def pipeline_ws(websocket: WebSocket, run_id: str) -> None:
     Validates the auth cookie then verifies the run belongs to the caller
     before relaying events from the run's queue.
     """
+    from fastapi import HTTPException
+
     from ui.backend.auth import COOKIE_NAME, decode_token
     from ui.backend.dependencies import get_db
-    from fastapi import HTTPException
 
     # ── Authentication ────────────────────────────────────────────────────────
     token = websocket.cookies.get(COOKIE_NAME)
@@ -95,7 +96,7 @@ async def pipeline_ws(websocket: WebSocket, run_id: str) -> None:
         while True:
             try:
                 event = await asyncio.wait_for(q.get(), timeout=30.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 await websocket.send_json({"type": "ping"})
                 continue
 

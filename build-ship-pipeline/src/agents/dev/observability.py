@@ -1,4 +1,5 @@
 """Observability agent — instruments generated code with OTel, writes Grafana dashboards."""
+
 from __future__ import annotations
 
 import json
@@ -32,7 +33,13 @@ def observability_node(state: PipelineState, model: str, db=None) -> tuple[dict,
         f"Existing artifact paths:\n{json.dumps(artifact_paths, indent=2)}"
     )
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=4096, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model,
+        inject_skills(_SYSTEM, state),
+        user_msg,
+        max_tokens=4096,
+        **model_kwargs_from_state(state),
+    )
 
     files = parse_llm_json_list(text, FileOutput, context="observability")
     artifacts: list[Artifact] = []

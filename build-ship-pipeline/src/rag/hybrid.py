@@ -6,6 +6,7 @@ where k=60 (empirically robust constant) and rank_r is the 1-based rank in
 retriever r.  RRF naturally normalises heterogeneous score scales, making it
 the gold standard for combining sparse + dense rankings.
 """
+
 from __future__ import annotations
 
 from src.rag.base import Document, RetrievalResult, Retriever
