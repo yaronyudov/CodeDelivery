@@ -1,0 +1,43 @@
+# USD per 1K tokens for each model
+# Update when Anthropic changes pricing
+prices:
+  claude-sonnet-4-6:
+    in: 0.003
+    out: 0.015
+  claude-haiku-4-5-20251001:
+    in: 0.00025
+    out: 0.00125
+  claude-opus-4-8:
+    in: 0.015
+    out: 0.075
+
+# Default model assignments per agent role
+# Heavier agents get more capable (and pricier) models
+agent_models:
+  planner: claude-sonnet-4-6
+  coder: claude-sonnet-4-6
+  docker: claude-haiku-4-5-20251001
+  observability: claude-haiku-4-5-20251001
+  tester: claude-haiku-4-5-20251001
+  debugger: claude-sonnet-4-6
+  reviewer: claude-haiku-4-5-20251001
+  review_sup: claude-haiku-4-5-20251001
+  security: claude-sonnet-4-6
+  perf: claude-sonnet-4-6
+  style: claude-haiku-4-5-20251001
+  coverage: claude-haiku-4-5-20251001
+
+# Expected output tokens per agent (used in pre-flight estimation)
+expected_output_tokens:
+  planner: 2000
+  coder: 4000
+  docker: 1500
+  observability: 2000
+  tester: 1000
+  debugger: 2000
+  reviewer: 1000
+  review_sup: 500
+  security: 1500
+  perf: 1500
+  style: 800
+  coverage: 800
