@@ -247,5 +247,101 @@ class PipelineRepo:
             ).fetchone()
             return dict(row) if row else None
 
+    # ------------------------------------------------------------------
+    # ROLE 8: Skill management
+    # ------------------------------------------------------------------
+    def list_skills(self) -> list[dict]:
+        with self._pool.connection() as conn:
+            rows = conn.execute(
+                "SELECT id, name, description, kind, target_agents, prompt_addon, is_default, is_system, created_at FROM skills ORDER BY kind, name",
+                row_factory=dict_row,
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_skill(self, skill_id: str) -> dict | None:
+        with self._pool.connection() as conn:
+            row = conn.execute(
+                "SELECT id, name, description, kind, target_agents, prompt_addon, is_default, is_system, created_at FROM skills WHERE id=%s",
+                (skill_id,),
+                row_factory=dict_row,
+            ).fetchone()
+            return dict(row) if row else None
+
+    def create_skill(self, skill: dict) -> None:
+        with self._pool.connection() as conn:
+            conn.execute(
+                """INSERT INTO skills (id, name, description, kind, target_agents, prompt_addon, is_default, is_system)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                (
+                    skill["id"], skill["name"], skill.get("description", ""),
+                    skill["kind"], skill.get("target_agents", []),
+                    skill.get("prompt_addon"), skill.get("is_default", False),
+                    skill.get("is_system", False),
+                ),
+            )
+
+    def update_skill(self, skill_id: str, updates: dict) -> None:
+        allowed = {"name", "description", "target_agents", "prompt_addon", "is_default"}
+        sets = [(k, v) for k, v in updates.items() if k in allowed]
+        if not sets:
+            return
+        cols = ", ".join(f"{k}=%s" for k, _ in sets)
+        vals = [v for _, v in sets] + [skill_id]
+        with self._pool.connection() as conn:
+            conn.execute(f"UPDATE skills SET {cols} WHERE id=%s AND is_system=false", vals)
+
+    def delete_skill(self, skill_id: str) -> bool:
+        with self._pool.connection() as conn:
+            cur = conn.execute("DELETE FROM skills WHERE id=%s AND is_system=false RETURNING id", (skill_id,))
+            return cur.fetchone() is not None
+
+    def toggle_skill_default(self, skill_id: str) -> dict | None:
+        with self._pool.connection() as conn:
+            row = conn.execute(
+                "UPDATE skills SET is_default = NOT is_default WHERE id=%s RETURNING id, is_default",
+                (skill_id,),
+                row_factory=dict_row,
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_default_skills(self) -> list[dict]:
+        with self._pool.connection() as conn:
+            rows = conn.execute(
+                "SELECT id, name, kind, target_agents, prompt_addon FROM skills WHERE is_default=true",
+                row_factory=dict_row,
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    # ------------------------------------------------------------------
+    # ROLE 9: Per-run skill overrides
+    # ------------------------------------------------------------------
+    def set_run_skill_overrides(self, run_id: str, overrides: dict) -> None:
+        """Persist session skill overrides.
+        overrides = {agent_name: {"add": [skill_id,...], "remove": [skill_id,...]}}
+        """
+        rows = []
+        for agent_name, ops in overrides.items():
+            for skill_id in ops.get("add", []):
+                rows.append((run_id, agent_name, skill_id, "add"))
+            for skill_id in ops.get("remove", []):
+                rows.append((run_id, agent_name, skill_id, "remove"))
+        if not rows:
+            return
+        with self._pool.connection() as conn:
+            conn.executemany(
+                """INSERT INTO run_skill_overrides (run_id, agent_name, skill_id, action)
+                   VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING""",
+                rows,
+            )
+
+    def get_run_skill_overrides(self, run_id: str) -> list[dict]:
+        with self._pool.connection() as conn:
+            rows = conn.execute(
+                "SELECT agent_name, skill_id, action FROM run_skill_overrides WHERE run_id=%s",
+                (run_id,),
+                row_factory=dict_row,
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def close(self) -> None:
         self._pool.close()

@@ -90,3 +90,29 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
 );
 
 CREATE INDEX IF NOT EXISTS pipeline_runs_user ON pipeline_runs (user_id, created_at DESC);
+
+-- ROLE 8: skill definitions — prompt injections and agent toggles -------------
+CREATE TABLE IF NOT EXISTS skills (
+    id            TEXT        PRIMARY KEY,   -- slug: "typescript", "skip-docker"
+    name          TEXT        NOT NULL,
+    description   TEXT        NOT NULL DEFAULT '',
+    kind          TEXT        NOT NULL
+                              CHECK (kind IN ('prompt_injection', 'agent_toggle')),
+    target_agents TEXT[]      NOT NULL DEFAULT '{}',  -- empty = all agents
+    prompt_addon  TEXT,                               -- injected text (prompt_injection)
+    is_default    BOOLEAN     NOT NULL DEFAULT false,
+    is_system     BOOLEAN     NOT NULL DEFAULT false, -- built-in, not deletable
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS skills_kind ON skills (kind);
+CREATE INDEX IF NOT EXISTS skills_default ON skills (is_default) WHERE is_default = true;
+
+-- ROLE 9: per-run skill overrides — add/remove skills from session defaults ---
+CREATE TABLE IF NOT EXISTS run_skill_overrides (
+    run_id      TEXT NOT NULL REFERENCES pipeline_runs(run_id) ON DELETE CASCADE,
+    agent_name  TEXT NOT NULL,   -- specific agent name OR '*' for all agents
+    skill_id    TEXT NOT NULL REFERENCES skills(id),
+    action      TEXT NOT NULL CHECK (action IN ('add', 'remove')),
+    PRIMARY KEY (run_id, agent_name, skill_id)
+);

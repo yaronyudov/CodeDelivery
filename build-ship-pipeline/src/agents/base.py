@@ -56,6 +56,14 @@ def call_model(
     return text, usage
 
 
+def inject_skills(system: str, state: dict) -> str:
+    """Append active skill instructions to an agent's system prompt."""
+    ctx = state.get("_skill_ctx", "")
+    if not ctx:
+        return system
+    return f"{system}\n\n## Active skill instructions:\n{ctx}"
+
+
 def model_kwargs_from_state(state: dict) -> dict:
     """Extract model call kwargs from state['model_config']."""
     cfg = state.get("model_config") or {}

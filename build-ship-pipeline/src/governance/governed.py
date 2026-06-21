@@ -25,12 +25,22 @@ def governed(agent_name: str, db: Any = None) -> Callable:
 
     def decorator(node_fn: Callable) -> Callable:
         def inner(state: PipelineState) -> dict:
+            # Skill: skip disabled agents (zero cost, no LLM call)
+            enabled = state.get("enabled_agents")
+            if enabled is not None and agent_name not in enabled:
+                return {}
+
             # Resolve model from state config or default from prices config
             cfg = state.get("model_config") or {}
             model = cfg.get("model") or PRICES_CFG.model_for(agent_name)
             expected_out = PRICES_CFG.expected_out(agent_name)
 
             prompt_tokens = _estimate_prompt_tokens(agent_name, state)
+
+            # Skill: inject per-agent prompt context into state for node to read
+            skill_ctx = (state.get("skill_context") or {}).get(agent_name, "")
+            if skill_ctx:
+                state = {**state, "_skill_ctx": skill_ctx}  # type: ignore[assignment]
 
             with tracer.start_as_current_span(f"agent.{agent_name}") as span:
                 span.set_attribute("run_id", state["run_id"])

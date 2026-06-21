@@ -13,7 +13,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from ui.backend import auth, runs
+from ui.backend import auth, runs, skills
 from ui.backend.ws import pipeline_ws, set_main_loop
 
 _FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth.router, prefix="/api/auth")
     app.include_router(runs.router, prefix="/api/runs")
+    app.include_router(skills.router, prefix="/api/skills")
     app.add_api_websocket_route("/ws/runs/{run_id}", pipeline_ws)
 
     # Serve React SPA from dist/ (falls back to index.html for client-side routing)
