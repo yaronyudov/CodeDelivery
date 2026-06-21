@@ -38,16 +38,6 @@ def governed(agent_name: str, db: Any = None) -> Callable:
                 span.set_attribute("model", model)
                 span.set_attribute("step", state["budget"]["steps_taken"])
 
-                # Check stop flag (UI "Stop" button)
-                if state.get("_stop_requested"):
-                    reason = "stopped by user"
-                    halt_counter.add(1, {"agent": agent_name, "reason": "stop"})
-                    return {
-                        "phase": "halted",
-                        "halt_reason": reason,
-                        "audit": [{"agent": agent_name, "halt": reason}],
-                    }
-
                 # PRE-FLIGHT BUDGET CHECK
                 try:
                     budget_guard(agent_name, model, prompt_tokens, expected_out, state, db)

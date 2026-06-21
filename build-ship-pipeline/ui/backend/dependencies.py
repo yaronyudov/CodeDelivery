@@ -19,8 +19,16 @@ def get_db() -> PipelineRepo:
 
 
 async def get_current_user(request: Request) -> TokenData:
-    """FastAPI dependency that validates the httpOnly JWT cookie."""
+    """Validates the httpOnly JWT cookie and confirms the account is still active."""
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    return decode_token(token)
+    token_data = decode_token(token)
+
+    # Re-check active status so deactivated accounts can't coast on unexpired tokens
+    db = get_db()
+    user = db.get_user_by_username(token_data.username)
+    if not user or not user.get("is_active"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    return token_data

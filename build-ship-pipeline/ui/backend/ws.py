@@ -2,13 +2,24 @@
 from __future__ import annotations
 
 import asyncio
-import json
+import logging
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+logger = logging.getLogger(__name__)
+
 # Per-run event queues: run_id → asyncio.Queue[dict]
 _queues: dict[str, asyncio.Queue] = {}
+
+# Reference to the main event loop — set once at app startup so the pipeline
+# thread can schedule puts without blocking the loop.
+_main_loop: asyncio.AbstractEventLoop | None = None
+
+
+def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
+    global _main_loop
+    _main_loop = loop
 
 
 def create_queue(run_id: str) -> asyncio.Queue:
@@ -22,13 +33,23 @@ def get_queue(run_id: str) -> asyncio.Queue | None:
 
 
 def publish(run_id: str, event: dict) -> None:
-    """Thread-safe publish from the pipeline thread to the WebSocket queue."""
+    """Thread-safe publish from the pipeline worker thread to the WebSocket queue.
+
+    Uses call_soon_threadsafe so the put runs on the main event loop — asyncio
+    Queue is not safe to call from a foreign thread directly.
+    """
     q = _queues.get(run_id)
-    if q:
+    loop = _main_loop
+    if q is None or loop is None:
+        return
+
+    def _put() -> None:
         try:
             q.put_nowait(event)
         except asyncio.QueueFull:
-            pass  # drop rather than block the pipeline
+            pass  # drop rather than block the pipeline thread
+
+    loop.call_soon_threadsafe(_put)
 
 
 def cleanup_queue(run_id: str) -> None:
@@ -38,20 +59,28 @@ def cleanup_queue(run_id: str) -> None:
 async def pipeline_ws(websocket: WebSocket, run_id: str) -> None:
     """WebSocket endpoint at /ws/runs/{run_id}.
 
-    Validates the auth cookie then relays events from the run's queue.
+    Validates the auth cookie then verifies the run belongs to the caller
+    before relaying events from the run's queue.
     """
     from ui.backend.auth import COOKIE_NAME, decode_token
+    from ui.backend.dependencies import get_db
     from fastapi import HTTPException
 
-    # Auth check on the WebSocket handshake
+    # ── Authentication ────────────────────────────────────────────────────────
     token = websocket.cookies.get(COOKIE_NAME)
     if not token:
         await websocket.close(code=4001)
         return
     try:
-        decode_token(token)
+        user = decode_token(token)
     except HTTPException:
         await websocket.close(code=4001)
+        return
+
+    # ── Authorization: verify this run belongs to the authenticated user ──────
+    db = get_db()
+    if not db.get_run(run_id, user.user_id):
+        await websocket.close(code=4003)
         return
 
     await websocket.accept()
@@ -67,7 +96,6 @@ async def pipeline_ws(websocket: WebSocket, run_id: str) -> None:
             try:
                 event = await asyncio.wait_for(q.get(), timeout=30.0)
             except asyncio.TimeoutError:
-                # Send ping to keep connection alive
                 await websocket.send_json({"type": "ping"})
                 continue
 
