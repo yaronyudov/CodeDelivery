@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.rag.base import Document, Retriever, RetrievalResult
+from src.rag.base import Document, RetrievalResult, Retriever
 from src.rag.bm25 import InMemoryBM25Retriever, PostgresBM25Retriever
 from src.rag.chunker import FixedChunker, RecursiveChunker, SentenceChunker
 from src.rag.dense import InMemoryDenseRetriever, PgVectorRetriever
@@ -45,6 +45,7 @@ from src.rag.graph import InMemoryGraphRetriever, PostgresGraphRetriever
 from src.rag.hybrid import HybridRetriever
 from src.rag.hyde import HyDERetriever
 from src.rag.indexer import PipelineIndexer
+from src.rag.instrument import InstrumentedRetriever
 from src.rag.multi_query import MultiQueryRetriever
 from src.rag.reranker import LLMReranker, RerankedRetriever
 
@@ -61,6 +62,7 @@ __all__ = [
     "HyDERetriever",
     "MultiQueryRetriever",
     "LLMReranker", "RerankedRetriever",
+    "InstrumentedRetriever",
     # Indexer
     "PipelineIndexer",
     # Factory
@@ -82,6 +84,7 @@ def create_retriever(
     n_variants: int = 3,
     fetch_k: int = 20,
     max_hops: int = 2,
+    instrument: bool = True,
 ) -> Retriever:
     """Factory: create the right retriever for *strategy*.
 
@@ -96,7 +99,36 @@ def create_retriever(
         litellm model string for embeddings.
     gen_model : str
         litellm model string for LLM-based strategies (HyDE, graph, multi_query, reranker).
+    instrument : bool
+        Wrap the result in InstrumentedRetriever (OTel spans/metrics + input
+        validation).  Defaults to True; pass False for raw retrievers in tests.
     """
+    from src.rag.guards import validate_corpus
+    from src.rag.instrument import InstrumentedRetriever
+
+    corpus = validate_corpus(corpus)
+    inner = _build_retriever(
+        strategy, pool=pool, corpus=corpus, embedding_model=embedding_model,
+        gen_model=gen_model, api_key=api_key, api_base=api_base, run_id=run_id,
+        n_variants=n_variants, fetch_k=fetch_k, max_hops=max_hops,
+    )
+    return InstrumentedRetriever(inner) if instrument else inner
+
+
+def _build_retriever(
+    strategy: str,
+    *,
+    pool: Any,
+    corpus: str | None,
+    embedding_model: str,
+    gen_model: str,
+    api_key: str | None,
+    api_base: str | None,
+    run_id: str | None,
+    n_variants: int,
+    fetch_k: int,
+    max_hops: int,
+) -> Retriever:
     s = strategy.lower()
 
     if s == "bm25":

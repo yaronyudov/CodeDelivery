@@ -37,12 +37,27 @@ build-ship-pipeline/
 │   │   ├── guard.py         ← budget_guard() + BudgetExceeded + estimate_cost()
 │   │   └── dynamic.py       ← fair-share dynamic per-action cap calculation
 │   ├── db/
-│   │   ├── schema.sql       ← 9-table Postgres schema (run once)
-│   │   └── repo.py          ← PipelineRepo (psycopg3 connection pool, 9 role groups)
+│   │   ├── schema.sql       ← 12-table Postgres schema (run once)
+│   │   └── repo.py          ← PipelineRepo (psycopg3 connection pool, role groups)
+│   ├── rag/                 ← retrieval-augmented generation (see §13)
+│   │   ├── base.py          ← Document, RetrievalResult, Retriever ABC
+│   │   ├── chunker.py       ← Fixed / Sentence / Recursive chunkers
+│   │   ├── bm25.py          ← in-memory Okapi BM25 + Postgres FTS BM25
+│   │   ├── dense.py         ← litellm embeddings (in-memory cosine + pgvector)
+│   │   ├── hybrid.py        ← Reciprocal Rank Fusion of any retrievers
+│   │   ├── graph.py         ← entity-graph RAG (in-memory + Postgres)
+│   │   ├── hyde.py          ← Hypothetical Document Embeddings
+│   │   ├── multi_query.py   ← LLM query expansion + vote merge
+│   │   ├── reranker.py      ← LLM cross-encoder reranker
+│   │   ├── instrument.py    ← InstrumentedRetriever (OTel + input guards)
+│   │   ├── guards.py        ← validate_query / validate_k / validate_corpus
+│   │   ├── indexer.py       ← PipelineIndexer (plan/artifacts/knowledge/memory)
+│   │   ├── recipes.py       ← 5 pipeline use cases (see §13)
+│   │   └── __init__.py      ← create_retriever() factory + retrieve_for_agent()
 │   ├── nodes/
 │   │   ├── approval.py      ← approval_gate_node (asyncio.Event gating between plan+code)
 │   │   ├── halt.py          ← halt_node (terminal — sets phase="halted")
-│   │   └── report.py        ← report_node (terminal — sets phase="done", verdict)
+│   │   └── report.py        ← report_node (terminal; persists run memory for RAG)
 │   └── observability/
 │       └── tracing.py       ← OpenTelemetry spans + Prometheus counters
 ├── ui/
@@ -304,19 +319,22 @@ These must NEVER be violated:
 
 ---
 
-## 10. DB schema — 9 tables
+## 10. DB schema — 12 tables
 
 | Table | Role | Key relationships |
 |-------|------|-------------------|
-| `memory` | Long-term cross-run memory | standalone |
+| `memory` | Long-term cross-run memory (RAG source: past_plan/lesson/pattern) | standalone |
 | `artifacts` | Generated file content (content_ref pointer keeps state slim) | `run_id → pipeline_runs` |
-| `knowledge` | Shared context written/read by review agents | `run_id` (implicit) |
+| `knowledge` | Shared context written/read by review agents (RAG source: known_cves/codebase_map) | `run_id` (implicit) |
 | `audit_log` | Every agent decision | `run_id` |
 | `budget_ledger` | Pre/post-flight cost rows | `run_id` |
 | `users` | Auth — pre-seeded, no self-registration | standalone |
 | `pipeline_runs` | One row per pipeline execution | `user_id → users` |
 | `skills` | Skill definitions | standalone |
 | `run_skill_overrides` | Per-session skill additions/removals | `run_id → pipeline_runs`, `skill_id → skills` |
+| `rag_documents` | Chunked text corpus + GIN FTS index (+ optional pgvector embedding) | `doc_id` unique per chunk |
+| `rag_entities` | Knowledge-graph nodes (file/function/class/service/concept) | unique `(corpus, name)` |
+| `rag_relations` | Knowledge-graph edges (imports/calls/inherits/uses/defines) | `source_id`/`target_id → rag_entities` |
 
 ---
 
@@ -372,3 +390,58 @@ curl -s -b cookies.txt -X POST http://localhost:8080/api/skills \
   -H "Content-Type: application/json" \
   -d '{"id":"use-typescript","name":"Use TypeScript","kind":"prompt_injection","target_agents":["coder"],"prompt_addon":"Always write TypeScript, never plain JavaScript.","is_default":true}'
 ```
+
+---
+
+## 13. RAG layer (`src/rag/`)
+
+Pluggable retrieval-augmented generation. Build a retriever with the factory,
+index data, retrieve, then inject the formatted context into an agent prompt.
+
+### Strategies (pass to `create_retriever(strategy=...)`)
+
+| Strategy | Backend | LLM calls | Needs DB pool |
+|----------|---------|-----------|---------------|
+| `bm25` | in-memory Okapi BM25 | none | no |
+| `bm25_pg` | Postgres GIN FTS (`ts_rank_cd`) | none | yes |
+| `dense` | litellm embeddings + cosine | embed | no |
+| `pgvector` | pgvector `<=>` | embed | yes (+ extension) |
+| `hybrid` | RRF(bm25, dense) — **recommended** | embed | no |
+| `hybrid_pg` | RRF(bm25_pg, pgvector) | embed | yes |
+| `graph` / `graph_pg` | entity graph + BFS | extract+query | graph_pg only |
+| `hyde` | hypothetical doc → dense | gen+embed | no |
+| `multi_query` | N query variants + vote merge | gen | no |
+| `reranked` | hybrid → LLM rerank | gen | no |
+
+Every retriever from the factory is wrapped in `InstrumentedRetriever`
+(`instrument=True` default) which adds OTel spans + metrics and validates
+inputs via `src/rag/guards.py`. Pass `instrument=False` for raw retrievers.
+
+### Observability (metrics in `src/observability/tracing.py`)
+
+`rag_retrievals_total`, `rag_retrieval_seconds`, `rag_documents_indexed`,
+`rag_empty_results`, `rag_rejected_inputs` — all labelled by `retriever`.
+Spans: `rag.retrieve`, `rag.index`.
+
+### Security guards (`src/rag/guards.py`)
+
+- `validate_query` — non-empty, ≤ 8 000 chars
+- `validate_k` — int in [1, 100] (rejects bool)
+- `validate_corpus` — allowlist `^[a-z0-9_-]{1,64}$` (safe for SQL/labels)
+- oversize chunks (> 100 KB) dropped at index time; content fed to LLMs truncated
+- all DB SQL is parameterised; corpus names validated before use
+
+### Use cases (`src/rag/recipes.py`) — cross-run learning loop
+
+| Recipe | Agent | Source | What it does |
+|--------|-------|--------|--------------|
+| `retrieve_similar_plans` | planner | `memory(past_plan)` | reuse past decompositions |
+| `retrieve_code_patterns` | coder | `memory(pattern)` | surface reusable patterns |
+| `retrieve_debug_lessons` | debugger | `memory(lesson)` | recall fixes for similar failures |
+| `retrieve_security_context` | security | `knowledge(known_cves, codebase_map)` | known CVEs + cross-file map |
+| `persist_run_memory` | report | writes `memory` | persist plan + critical-finding lessons |
+
+The loop: `report_node` calls `persist_run_memory()` at the end of a successful
+run → future runs' planner/coder/debugger/security retrieve from it. All recipes
+are wrapped so any DB/LLM error degrades to empty context (never crashes a run).
+`db` is threaded into these nodes via lambdas in `graph.py`.

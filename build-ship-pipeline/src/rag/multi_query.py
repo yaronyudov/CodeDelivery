@@ -41,6 +41,7 @@ def _expand_query(
     api_base: str | None,
 ) -> list[str]:
     import json
+
     import litellm
     litellm.suppress_debug_info = True
     system = _EXPAND_SYSTEM.format(n=n)

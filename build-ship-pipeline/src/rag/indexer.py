@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import logging
 
-from src.rag.base import Document, Retriever
+from src.rag.base import Retriever
 from src.rag.chunker import RecursiveChunker
 
 logger = logging.getLogger(__name__)

@@ -242,7 +242,7 @@ class PostgresGraphRetriever(Retriever):
                     """INSERT INTO rag_entities (corpus, run_id, name, type, description,
                        attributes)
                        VALUES (%s, %s, %s, %s, %s, %s)
-                       ON CONFLICT DO NOTHING RETURNING id""",
+                       ON CONFLICT (corpus, name) DO NOTHING RETURNING id""",
                     (self._corpus, self._run_id, name, ent.get("type", "concept"),
                      ent.get("description", ""), json.dumps({"doc_id": doc.id})),
                 ).fetchone()

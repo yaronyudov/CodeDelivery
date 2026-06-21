@@ -1,6 +1,8 @@
 """Test Coverage Inspector — coverage gaps, missing edge cases, flaky tests."""
 from __future__ import annotations
 
+import json
+
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
 from src.agents.outputs import ReviewFinding
 from src.guardrails import parse_llm_json_list

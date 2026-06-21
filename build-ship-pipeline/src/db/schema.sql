@@ -155,6 +155,8 @@ CREATE TABLE IF NOT EXISTS rag_entities (
 
 CREATE INDEX IF NOT EXISTS rag_entities_corpus_run ON rag_entities (corpus, run_id);
 CREATE INDEX IF NOT EXISTS rag_entities_name       ON rag_entities (name text_pattern_ops);
+-- Dedup key so graph indexing can upsert entities (ON CONFLICT target)
+CREATE UNIQUE INDEX IF NOT EXISTS rag_entities_corpus_name ON rag_entities (corpus, name);
 
 -- ROLE 12: RAG entity graph — edges ——————————————————————————————————————————
 CREATE TABLE IF NOT EXISTS rag_relations (

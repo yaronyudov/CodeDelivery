@@ -1,6 +1,8 @@
 """Debugger agent — diagnoses test failures and routes fixes."""
 from __future__ import annotations
 
+import json
+
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
 from src.agents.outputs import DebuggerOutput
 from src.guardrails import parse_llm_json
@@ -23,7 +25,7 @@ architectural problem that requires re-planning.
 Respond ONLY with this JSON object."""
 
 
-def debugger_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
+def debugger_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]:
     failures = state.get("test_results", {}).get("failures", [])
     attempts = state.get("debug_attempts", 0)
 
@@ -31,6 +33,13 @@ def debugger_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
         f"Test failures (attempt {attempts + 1}):\n{json.dumps(failures, indent=2)}\n\n"
         f"Plan summary: {state.get('plan', {}).get('summary', 'N/A')}"
     )
+
+    # RAG use case 2: recall fixes for similar past failures.
+    if db is not None and failures:
+        from src.rag.recipes import retrieve_debug_lessons
+        lessons = retrieve_debug_lessons(failures, db, k=3)
+        if lessons:
+            user_msg += f"\n\n{lessons}"
 
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 

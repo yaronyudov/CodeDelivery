@@ -9,7 +9,6 @@ from src.agents.outputs import FileOutput
 from src.guardrails import parse_llm_json_list
 from src.state import Artifact, PipelineState
 
-
 _SYSTEM = """You are the Coder agent in a software build pipeline.
 Given a build plan, produce the application source files.
 
@@ -27,6 +26,14 @@ def coder_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]:
         debug_context = f"\n\nPrevious test failures occurred. debug_attempts={state['debug_attempts']}. Fix the issues."
 
     user_msg = f"Build plan:\n{plan_text}{debug_context}"
+
+    # RAG use case 3: surface reusable code patterns from past runs.
+    if db is not None:
+        from src.rag.recipes import retrieve_code_patterns
+        patterns = retrieve_code_patterns(state.get("plan", {}), db, k=3)
+        if patterns:
+            user_msg += f"\n\n{patterns}"
+
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=8192, **model_kwargs_from_state(state))
 
     files = parse_llm_json_list(text, FileOutput, context="coder")
