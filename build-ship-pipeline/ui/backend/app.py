@@ -1,6 +1,7 @@
 """FastAPI application factory."""
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -12,12 +13,18 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from ui.backend import auth, runs
-from ui.backend.ws import pipeline_ws
+from ui.backend import auth, runs, skills
+from ui.backend.ws import pipeline_ws, set_main_loop
 
 _FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
 limiter = Limiter(key_func=get_remote_address)
+
+# CORS: explicit allowlist only — never wildcard with credentials.
+# In production (same-origin via nginx) leave ALLOWED_ORIGINS unset.
+# In local dev set: ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8080
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+_allow_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 
 def create_app() -> FastAPI:
@@ -28,14 +35,24 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if os.getenv("DEV_MODE") else [],
+        allow_origins=_allow_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
     )
+
+    @app.on_event("startup")
+    async def _startup() -> None:
+        """Store the running event loop so pipeline worker threads can publish safely."""
+        loop = asyncio.get_running_loop()
+        set_main_loop(loop)
+        # Also wire up the approval gate so it can wait on the same loop
+        from src.nodes.approval import set_main_loop as approval_set_loop
+        approval_set_loop(loop)
 
     app.include_router(auth.router, prefix="/api/auth")
     app.include_router(runs.router, prefix="/api/runs")
+    app.include_router(skills.router, prefix="/api/skills")
     app.add_api_websocket_route("/ws/runs/{run_id}", pipeline_ws)
 
     # Serve React SPA from dist/ (falls back to index.html for client-side routing)

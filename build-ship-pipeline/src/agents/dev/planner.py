@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from src.agents.base import Usage, call_model
+from src.agents.base import Usage, call_model, inject_skills
 from src.state import PipelineState
 
 _SYSTEM = """You are the Planner agent in a software build pipeline.
@@ -27,7 +27,7 @@ def planner_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
             findings_text = "\n".join(f"- [{f['agent']}] {f['message']}" for f in critical)
             user_msg += f"\n\nPrevious review found critical issues — revise plan:\n{findings_text}"
 
-    text, usage = call_model(model, _SYSTEM, user_msg)
+    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg)
 
     try:
         plan = json.loads(text)

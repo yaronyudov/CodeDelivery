@@ -1,5 +1,27 @@
 export type Provider = "anthropic" | "openai" | "groq" | "ollama" | "custom";
 
+// ── Skill system ───────────────────────────────────────────────────────────────
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  kind: "prompt_injection" | "agent_toggle";
+  target_agents: string[];
+  prompt_addon: string | null;
+  is_default: boolean;
+  is_system: boolean;
+  created_at: string;
+}
+
+export interface RunSkillOverride {
+  add: string[];
+  remove: string[];
+}
+
+// skill_overrides sent with StartRunRequest: { [agentName | "*"]: RunSkillOverride }
+export type SessionSkillOverrides = Record<string, RunSkillOverride>;
+
 export interface ModelConfig {
   provider: Provider;
   model: string;

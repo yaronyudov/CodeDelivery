@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from src.agents.base import Usage, call_model
+from src.agents.base import Usage, call_model, inject_skills
 from src.state import Finding, PipelineState
 
 _SYSTEM = """You are a Security Auditor agent reviewing source code.
@@ -32,7 +32,7 @@ def security_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
         f"Review these artifacts for security issues:\n{json.dumps(artifact_paths)}"
     )
 
-    text, usage = call_model(model, _SYSTEM, user_msg)
+    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg)
 
     findings: list[Finding] = []
     try:

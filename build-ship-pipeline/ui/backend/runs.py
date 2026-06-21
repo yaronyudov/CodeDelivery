@@ -2,20 +2,22 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from src.nodes.approval import register_run, signal_approval
-from src.state import initial_state
+from src.state import _ALL_AGENTS, initial_state
 from ui.backend.dependencies import get_current_user, get_db
-from ui.backend.models import ApproveRequest, RunSummary, StartRunRequest, TokenData
+from ui.backend.models import ApproveRequest, RunSummary, RunSkillOverride, StartRunRequest, TokenData
 from ui.backend.ws import create_queue, publish
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["runs"])
 
-# Per-run stop flags: run_id → bool
+# Per-run stop flags: run_id → bool  (GIL makes dict access thread-safe)
 _stop_flags: dict[str, bool] = {}
 
 
@@ -76,29 +78,43 @@ async def start_run(
         "provider": body.model_config_.provider,
         "model": body.model_config_.model,
         "api_base": body.model_config_.api_base,
+        # API key held in memory only — not persisted to DB
         "api_key": body.model_config_.api_key,
     }
+
+    # Strip API key before writing to the database
+    model_cfg_stored = {k: v for k, v in model_cfg.items() if k != "api_key"}
 
     db.create_run(
         run_id=run_id,
         user_id=user.user_id,
         feature_request=body.feature_request,
-        model_config=model_cfg,
+        model_config=model_cfg_stored,
         require_approval=body.require_approval,
     )
 
-    # Set up approval gate and WebSocket queue before launching
+    # Compute effective skills (defaults + session overrides) before launch
+    skill_overrides_raw = {k: v.model_dump() for k, v in body.skill_overrides.items()}
+    skill_context, enabled_agents = _compute_skill_context(skill_overrides_raw, db)
+
+    # Persist session overrides for auditing
+    if skill_overrides_raw:
+        db.set_run_skill_overrides(run_id, skill_overrides_raw)
+
+    # Set up approval gate and WebSocket queue before launching the thread
     if body.require_approval:
         register_run(run_id)
     create_queue(run_id)
 
-    # Launch pipeline asynchronously
+    # Run the blocking pipeline in a worker thread so the event loop stays free
     asyncio.create_task(
         _run_pipeline(
             run_id=run_id,
             feature_request=body.feature_request,
             model_config=model_cfg,
             require_approval=body.require_approval,
+            skill_context=skill_context,
+            enabled_agents=enabled_agents,
         )
     )
 
@@ -142,15 +158,108 @@ async def reject_run(
     return {"ok": True}
 
 
-# ── Pipeline execution task ──────────────────────────────────────────────────
+# ── Pipeline execution ────────────────────────────────────────────────────────
+
+def _compute_skill_context(
+    overrides: dict,
+    db,
+) -> tuple[dict, list]:
+    """Compute (skill_context, enabled_agents) for a run.
+
+    overrides = {agent_name_or_star: {"add": [id,...], "remove": [id,...]}}
+    Returns:
+      skill_context   — {agent_name: combined prompt text}
+      enabled_agents  — list of agents that should run
+    """
+    defaults = db.get_default_skills()
+
+    # Build effective skill set per agent
+    # Start: every agent gets all default skills that target it
+    effective: dict[str, set] = {a: set() for a in _ALL_AGENTS}
+
+    for skill in defaults:
+        targets = skill.get("target_agents") or []
+        agents_to_apply = targets if targets else _ALL_AGENTS
+        for agent in agents_to_apply:
+            if agent in effective:
+                effective[agent].add(skill["id"])
+
+    # Build a quick lookup: skill_id → skill row
+    skill_map = {s["id"]: s for s in defaults}
+
+    # Apply session overrides (load full skill rows for added skill IDs from DB)
+    added_ids: set = set()
+    for ops in overrides.values():
+        added_ids.update(ops.get("add", []))
+    if added_ids:
+        from ui.backend.dependencies import get_db as _get_db
+        for sid in added_ids:
+            if sid not in skill_map:
+                row = db.get_skill(sid)
+                if row:
+                    skill_map[sid] = row
+
+    for agent_or_star, ops in overrides.items():
+        target_agents = _ALL_AGENTS if agent_or_star == "*" else [agent_or_star]
+        for agent in target_agents:
+            if agent not in effective:
+                continue
+            for sid in ops.get("add", []):
+                effective[agent].add(sid)
+            for sid in ops.get("remove", []):
+                effective[agent].discard(sid)
+
+    # Build outputs
+    skill_context: dict = {}
+    disabled: set = set()
+
+    for agent, skill_ids in effective.items():
+        prompt_parts = []
+        for sid in skill_ids:
+            skill = skill_map.get(sid)
+            if not skill:
+                continue
+            if skill["kind"] == "agent_toggle":
+                targets = skill.get("target_agents") or []
+                if not targets or agent in targets:
+                    disabled.add(agent)
+            elif skill["kind"] == "prompt_injection" and skill.get("prompt_addon"):
+                prompt_parts.append(skill["prompt_addon"])
+        if prompt_parts:
+            skill_context[agent] = "\n".join(prompt_parts)
+
+    enabled_agents = [a for a in _ALL_AGENTS if a not in disabled]
+    return skill_context, enabled_agents
+
 
 async def _run_pipeline(
     run_id: str,
     feature_request: str,
     model_config: dict,
     require_approval: bool,
+    skill_context: dict | None = None,
+    enabled_agents: list | None = None,
 ) -> None:
-    """Runs the pipeline in a thread pool and publishes events to the WebSocket queue."""
+    """Async wrapper — offloads the blocking pipeline to a worker thread."""
+    await asyncio.to_thread(
+        _run_pipeline_sync, run_id, feature_request, model_config, require_approval,
+        skill_context or {}, enabled_agents,
+    )
+
+
+def _run_pipeline_sync(
+    run_id: str,
+    feature_request: str,
+    model_config: dict,
+    require_approval: bool,
+    skill_context: dict | None = None,
+    enabled_agents: list | None = None,
+) -> None:
+    """Synchronous pipeline runner — safe to call from a worker thread.
+
+    Publishes typed events to the run's WebSocket queue as the graph streams.
+    All publish() calls are thread-safe (they schedule onto the main event loop).
+    """
     from src.graph import build_graph
 
     db = get_db()
@@ -159,6 +268,8 @@ async def _run_pipeline(
         feature_request=feature_request,
         require_approval=require_approval,
         model_config=model_config,
+        skill_context=skill_context or {},
+        enabled_agents=enabled_agents,
     )
 
     app = build_graph(db)
@@ -171,7 +282,7 @@ async def _run_pipeline(
         for step_output in app.stream(state, config=config):
             node_name, node_result = next(iter(step_output.items()))
 
-            # Check stop flag
+            # Check stop flag between nodes
             if _stop_flags.get(run_id):
                 final_status = "stopped"
                 publish(run_id, {"type": "halt", "reason": "stopped by user"})
@@ -229,9 +340,10 @@ async def _run_pipeline(
             if phase == "done":
                 verdict = node_result.get("verdict")
 
-    except Exception as exc:
+    except Exception:
+        logger.exception("Pipeline %s failed", run_id)
         final_status = "halted"
-        publish(run_id, {"type": "error", "message": str(exc)})
+        publish(run_id, {"type": "error", "message": "Pipeline encountered an error. Check server logs."})
 
     finally:
         _stop_flags.pop(run_id, None)

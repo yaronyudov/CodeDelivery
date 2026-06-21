@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { getMe } from "./api/auth";
+import { listSkills } from "./api/skills";
 import { ApprovalGate } from "./components/ApprovalGate";
 import { ChatWindow } from "./components/ChatWindow";
 import { Login } from "./components/Login";
 import { Sidebar } from "./components/Sidebar";
+import { SkillsManager } from "./components/SkillsManager";
 import { StreamPanel } from "./components/StreamPanel";
 import { useRun } from "./hooks/useRun";
 import { useWebSocket } from "./hooks/useWebSocket";
-import type { RunSummary } from "./types";
+import type { RunSummary, Skill, SessionSkillOverrides } from "./types";
 
 type AuthState = "loading" | "authed" | "anon";
 
@@ -15,6 +17,9 @@ export default function App() {
   const [auth, setAuth] = useState<AuthState>("loading");
   const [username, setUsername] = useState("");
   const [requireApproval, setRequireApproval] = useState(false);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skillOverrides, setSkillOverrides] = useState<SessionSkillOverrides>({});
+  const [showSkillsManager, setShowSkillsManager] = useState(false);
 
   const { state: runState, start, onEvent, reset } = useRun();
   useWebSocket(runState.runId, onEvent);
@@ -29,6 +34,12 @@ export default function App() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (auth === "authed") {
+      listSkills().then(setSkills).catch(() => {});
+    }
+  }, [auth]);
 
   function handleLoginSuccess() {
     getMe().then((user) => {
@@ -63,6 +74,7 @@ export default function App() {
         onSelectRun={handleSelectRun}
         onNewRun={reset}
         username={username}
+        onOpenSkillsManager={() => setShowSkillsManager(true)}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -102,6 +114,9 @@ export default function App() {
           onStop={() => {}}
           requireApproval={requireApproval}
           onRequireApprovalChange={setRequireApproval}
+          skills={skills}
+          skillOverrides={skillOverrides}
+          onSkillOverridesChange={setSkillOverrides}
         />
       </main>
 
@@ -113,6 +128,16 @@ export default function App() {
           onDecision={() =>
             onEvent({ type: "step", agent: "approval_gate", phase: "dev", step: 0, tokens: 0, cost_usd: 0, latency_s: 0 })
           }
+        />
+      )}
+
+      {/* Skills manager slide-over */}
+      {showSkillsManager && (
+        <SkillsManager
+          onClose={() => {
+            setShowSkillsManager(false);
+            listSkills().then(setSkills).catch(() => {});
+          }}
         />
       )}
     </div>

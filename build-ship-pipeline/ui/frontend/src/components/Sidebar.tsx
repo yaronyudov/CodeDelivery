@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle, Clock, PlusCircle, XCircle } from "lucide-react";
+import { CheckCircle, Clock, PlusCircle, Settings, XCircle } from "lucide-react";
 import { logout } from "../api/auth";
 import { listRuns } from "../api/runs";
 import type { RunSummary } from "../types";
@@ -9,6 +9,7 @@ interface Props {
   onSelectRun: (run: RunSummary) => void;
   onNewRun: () => void;
   username: string;
+  onOpenSkillsManager?: () => void;
 }
 
 function StatusIcon({ status }: { status: RunSummary["status"] }) {
@@ -17,7 +18,7 @@ function StatusIcon({ status }: { status: RunSummary["status"] }) {
   return <XCircle size={14} className="text-red-400 shrink-0" />;
 }
 
-export function Sidebar({ activeRunId, onSelectRun, onNewRun, username }: Props) {
+export function Sidebar({ activeRunId, onSelectRun, onNewRun, username, onOpenSkillsManager }: Props) {
   const [runs, setRuns] = useState<RunSummary[]>([]);
 
   useEffect(() => {
@@ -73,12 +74,23 @@ export function Sidebar({ activeRunId, onSelectRun, onNewRun, username }: Props)
       {/* User footer */}
       <div className="border-t border-gray-800 px-4 py-3 flex items-center justify-between">
         <span className="text-sm text-gray-400 truncate">{username}</span>
-        <button
-          onClick={handleLogout}
-          className="text-xs text-gray-600 hover:text-red-400 transition-colors ml-2"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-2 ml-2">
+          {onOpenSkillsManager && (
+            <button
+              onClick={onOpenSkillsManager}
+              title="Manage skills"
+              className="text-gray-600 hover:text-orange-400 transition-colors"
+            >
+              <Settings size={15} />
+            </button>
+          )}
+          <button
+            onClick={handleLogout}
+            className="text-xs text-gray-600 hover:text-red-400 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </aside>
   );

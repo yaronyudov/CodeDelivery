@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import uuid
 
-from src.agents.base import Usage, call_model
+from src.agents.base import Usage, call_model, inject_skills
 from src.state import Artifact, PipelineState
 
 _SYSTEM = """You are the Docker Compose agent in a software build pipeline.
@@ -30,7 +30,7 @@ def docker_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]
     stack_text = ", ".join(state.get("tech_stack", []))
     user_msg = f"Build plan:\n{plan_text}\n\nTech stack: {stack_text}"
 
-    text, usage = call_model(model, _SYSTEM, user_msg, max_tokens=4096)
+    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=4096)
 
     artifacts: list[Artifact] = []
     try:

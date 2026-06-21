@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Literal
 
-from src.agents.base import Usage, call_model
+from src.agents.base import Usage, call_model, inject_skills
 from src.state import Finding, PipelineState
 
 _SYSTEM = """You are the Review Supervisor in a software review pipeline.
@@ -33,7 +33,7 @@ def review_supervisor_node(state: PipelineState, model: str) -> tuple[dict, Usag
         f"Review findings from all specialists:\n{findings_text}"
     )
 
-    text, usage = call_model(model, _SYSTEM, user_msg)
+    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg)
 
     try:
         result = json.loads(text)

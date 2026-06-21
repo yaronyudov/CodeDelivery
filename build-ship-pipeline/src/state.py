@@ -63,12 +63,25 @@ class PipelineState(TypedDict):
     approval_status: Literal["pending", "approved", "rejected"] | None
     model_config: dict  # {provider, model, api_base, api_key} — passed to call_model
 
+    # Skill system — computed once at run start from DB defaults + session overrides
+    skill_context: dict   # {agent_name: combined prompt injection text}
+    enabled_agents: list  # agent names that should run (all agents minus toggles)
+
+
+_ALL_AGENTS = [
+    "planner", "coder", "docker", "observability", "tester",
+    "debugger", "reviewer", "review_supervisor", "security",
+    "perf", "style", "coverage",
+]
+
 
 def initial_state(
     run_id: str,
     feature_request: str,
     require_approval: bool = False,
     model_config: dict | None = None,
+    skill_context: dict | None = None,
+    enabled_agents: list | None = None,
 ) -> PipelineState:
     """Build the starting state for a new pipeline run."""
     return PipelineState(
@@ -97,4 +110,6 @@ def initial_state(
         require_approval=require_approval,
         approval_status=None,
         model_config=model_config or {},
+        skill_context=skill_context or {},
+        enabled_agents=enabled_agents if enabled_agents is not None else list(_ALL_AGENTS),
     )

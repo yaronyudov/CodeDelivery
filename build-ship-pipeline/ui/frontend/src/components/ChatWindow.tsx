@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Play, Square } from "lucide-react";
 import { startRun, stopRun } from "../api/runs";
-import type { ModelConfig } from "../types";
+import type { ModelConfig, Skill, SessionSkillOverrides } from "../types";
 import { ModelPicker } from "./ModelPicker";
+import { SessionSkills } from "./SessionSkills";
 
 interface Props {
   runId: string | null;
@@ -11,6 +12,9 @@ interface Props {
   onStop: () => void;
   requireApproval: boolean;
   onRequireApprovalChange: (v: boolean) => void;
+  skills: Skill[];
+  skillOverrides: SessionSkillOverrides;
+  onSkillOverridesChange: (o: SessionSkillOverrides) => void;
 }
 
 const DEFAULT_MODEL: ModelConfig = {
@@ -25,6 +29,9 @@ export function ChatWindow({
   onStop,
   requireApproval,
   onRequireApprovalChange,
+  skills,
+  skillOverrides,
+  onSkillOverridesChange,
 }: Props) {
   const [text, setText] = useState("");
   const [modelConfig, setModelConfig] = useState<ModelConfig>(DEFAULT_MODEL);
@@ -36,7 +43,7 @@ export function ChatWindow({
     if (!text.trim()) return;
     setError(null);
     try {
-      const { run_id } = await startRun(text.trim(), modelConfig, requireApproval);
+      const { run_id } = await startRun(text.trim(), modelConfig, requireApproval, skillOverrides);
       onStart(run_id);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to start run");
@@ -70,6 +77,15 @@ export function ChatWindow({
           />
           Require human approval before coding
         </label>
+      </div>
+
+      {/* Session skill overrides */}
+      <div className="mb-3">
+        <SessionSkills
+          skills={skills}
+          overrides={skillOverrides}
+          onChange={onSkillOverridesChange}
+        />
       </div>
 
       {/* Textarea + action buttons */}

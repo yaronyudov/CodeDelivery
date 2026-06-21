@@ -12,12 +12,30 @@ from slowapi.util import get_remote_address
 
 from ui.backend.models import LoginRequest, TokenData
 
-_SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-to-a-256-bit-random-secret")
+# Fail fast — refuse to start with the public fallback string.
+_SECRET_KEY = os.environ.get("SECRET_KEY")
+if not _SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is not set. "
+        "Generate one with: openssl rand -hex 32"
+    )
+
 _ALGORITHM = "HS256"
 _ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-_limiter = Limiter(key_func=get_remote_address)
+
+
+def _real_ip(request: Request) -> str:
+    """Client IP that respects X-Real-IP set by the nginx reverse proxy."""
+    return (
+        request.headers.get("X-Real-IP")
+        or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        or get_remote_address(request)
+    )
+
+
+_limiter = Limiter(key_func=_real_ip)
 
 router = APIRouter(tags=["auth"])
 
@@ -67,7 +85,7 @@ def _set_auth_cookie(response: Response, token: str) -> None:
 @router.post("/login")
 @_limiter.limit("5/15minute")
 async def login(request: Request, body: LoginRequest, response: Response):
-    """Rate-limited login: 5 attempts per 15 min per IP."""
+    """Rate-limited login: 5 attempts per 15 min per real client IP."""
     from ui.backend.dependencies import get_db
     db = get_db()
     user = db.get_user_by_username(body.username)

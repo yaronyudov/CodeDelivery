@@ -1,4 +1,4 @@
-import type { ModelConfig, RunSummary } from "../types";
+import type { ModelConfig, RunSummary, SessionSkillOverrides } from "../types";
 
 const BASE = "/api/runs";
 
@@ -12,12 +12,13 @@ export async function startRun(
   feature_request: string,
   model_config: ModelConfig,
   require_approval: boolean,
+  skill_overrides: SessionSkillOverrides = {},
 ): Promise<{ run_id: string }> {
   const res = await fetch(BASE, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ feature_request, model_config, require_approval }),
+    body: JSON.stringify({ feature_request, model_config, require_approval, skill_overrides }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
