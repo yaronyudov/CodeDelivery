@@ -15,6 +15,19 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+try:
+    from src.observability.tracing import tracer as _tracer
+except Exception:
+    _tracer = None  # type: ignore[assignment]
+
+
+def _span(name: str):
+    """Context manager that creates an OTel span when tracing is available."""
+    if _tracer is not None:
+        return _tracer.start_as_current_span(f"db.{name}")
+    from contextlib import nullcontext
+    return nullcontext()
+
 
 def _dsn() -> str:
     return (
@@ -58,12 +71,13 @@ class PipelineRepo:
     ) -> str:
         """Persists content and returns a content_ref UUID."""
         ref = str(uuid.uuid4())
-        with self._pool.connection() as conn:
-            conn.execute(
-                """INSERT INTO artifacts (content_ref, run_id, kind, path, version, content)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
-                (ref, run_id, kind, path, version, content),
-            )
+        with _span("save_artifact"):
+            with self._pool.connection() as conn:
+                conn.execute(
+                    """INSERT INTO artifacts (content_ref, run_id, kind, path, version, content)
+                       VALUES (%s, %s, %s, %s, %s, %s)""",
+                    (ref, run_id, kind, path, version, content),
+                )
         return ref
 
     def load_artifact(self, content_ref: str) -> str | None:
@@ -110,12 +124,13 @@ class PipelineRepo:
     def append_audit(
         self, run_id: str, step: int, agent: str, action: str, decision: dict
     ) -> None:
-        with self._pool.connection() as conn:
-            conn.execute(
-                """INSERT INTO audit_log (run_id, step, agent, action, decision)
-                   VALUES (%s, %s, %s, %s, %s)""",
-                (run_id, step, agent, action, json.dumps(decision)),
-            )
+        with _span("append_audit"):
+            with self._pool.connection() as conn:
+                conn.execute(
+                    """INSERT INTO audit_log (run_id, step, agent, action, decision)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    (run_id, step, agent, action, json.dumps(decision)),
+                )
 
     def get_audit_log(self, run_id: str) -> list[dict]:
         with self._pool.connection() as conn:
@@ -205,22 +220,24 @@ class PipelineRepo:
         model_config: dict,
         require_approval: bool,
     ) -> None:
-        with self._pool.connection() as conn:
-            conn.execute(
-                """INSERT INTO pipeline_runs
-                   (run_id, user_id, feature_request, model_config, require_approval)
-                   VALUES (%s, %s, %s, %s, %s)""",
-                (run_id, user_id, feature_request, json.dumps(model_config), require_approval),
-            )
+        with _span("create_run"):
+            with self._pool.connection() as conn:
+                conn.execute(
+                    """INSERT INTO pipeline_runs
+                       (run_id, user_id, feature_request, model_config, require_approval)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    (run_id, user_id, feature_request, json.dumps(model_config), require_approval),
+                )
 
     def finish_run(self, run_id: str, status: str, verdict: str | None = None) -> None:
-        with self._pool.connection() as conn:
-            conn.execute(
-                """UPDATE pipeline_runs
-                   SET status=%s, verdict=%s, finished_at=now()
-                   WHERE run_id=%s""",
-                (status, verdict, run_id),
-            )
+        with _span("finish_run"):
+            with self._pool.connection() as conn:
+                conn.execute(
+                    """UPDATE pipeline_runs
+                       SET status=%s, verdict=%s, finished_at=now()
+                       WHERE run_id=%s""",
+                    (status, verdict, run_id),
+                )
 
     def list_runs(self, user_id: int, limit: int = 50) -> list[dict]:
         with self._pool.connection() as conn:

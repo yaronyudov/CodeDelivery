@@ -5,7 +5,9 @@ import json
 from typing import Literal
 
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
-from src.state import Finding, PipelineState
+from src.agents.outputs import SupervisorOutput
+from src.guardrails import parse_llm_json
+from src.state import PipelineState
 
 _SYSTEM = """You are the Review Supervisor in a software review pipeline.
 Aggregate the findings from all review specialists and produce a final verdict.
@@ -35,11 +37,5 @@ def review_supervisor_node(state: PipelineState, model: str) -> tuple[dict, Usag
 
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 
-    try:
-        result = json.loads(text)
-        verdict: Literal["clean", "minor", "critical"] = result.get("verdict", "clean")
-    except json.JSONDecodeError:
-        verdict = "critical"
-        result = {"verdict": "critical", "summary": text}
-
-    return {"verdict": verdict}, usage
+    result = parse_llm_json(text, SupervisorOutput, context="review_supervisor")
+    return {"verdict": result.verdict}, usage

@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
+from src.agents.outputs import PlannerOutput
+from src.guardrails import parse_llm_json
 from src.state import PipelineState
 
 _SYSTEM = """You are the Planner agent in a software build pipeline.
@@ -29,11 +31,8 @@ def planner_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
 
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 
-    try:
-        plan = json.loads(text)
-    except json.JSONDecodeError:
-        plan = {"summary": text, "tasks": [], "tech_stack": [], "complexity": 1.0, "acceptance_criteria": []}
-
+    parsed = parse_llm_json(text, PlannerOutput, context="planner")
+    plan = parsed.model_dump()
     return {
         "plan": plan,
         "tech_stack": plan.get("tech_stack", []),

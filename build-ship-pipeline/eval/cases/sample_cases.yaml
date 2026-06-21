@@ -1,0 +1,86 @@
+# Sample evaluation cases for the Build & Ship Pipeline.
+#
+# Each case describes one pipeline run to execute and the criteria used
+# to decide if the result is good/bad/neutral.
+#
+# Fields
+# ------
+# id            Unique slug for this case (used as the primary key in result JSON).
+# description   Human-readable summary of what the case tests.
+# feature_request
+#               The text sent to the pipeline planner.
+# require_approval
+#               Whether the run should pause for human approval.
+# model_override
+#               Optional dict with {model, api_base, api_key} to override the
+#               default model for this specific case.
+# expected
+#   min_artifacts   Minimum number of artifacts the coder must produce.
+#   min_tests       Minimum number of test artifacts.
+#   verdict         Expected final verdict: "clean" | "minor" | "critical" | null
+#                   (null = don't assert on verdict)
+#   test_passed     True = tests must pass; False = don't assert.
+#   max_cost_usd    Fail if actual cost exceeds this.
+#   forbidden_findings
+#                   List of substrings that must NOT appear in any finding message.
+
+cases:
+  - id: hello-world-api
+    description: Simplest possible REST API — baseline sanity check.
+    feature_request: |
+      Build a minimal Python FastAPI hello-world service with a single GET /
+      endpoint that returns {"hello": "world"}.  Include a Dockerfile and one
+      pytest test.
+    require_approval: false
+    expected:
+      min_artifacts: 3
+      min_tests: 1
+      test_passed: true
+      max_cost_usd: 0.50
+      verdict: null
+
+  - id: todo-crud-api
+    description: Basic CRUD API — exercises planner decomposition and security review.
+    feature_request: |
+      Build a CRUD REST API for a To-Do list using FastAPI and SQLite.
+      Include endpoints: POST /todos, GET /todos, GET /todos/{id},
+      PUT /todos/{id}, DELETE /todos/{id}.
+      Use SQLAlchemy ORM.  Include pytest tests and docker-compose.yml.
+    require_approval: false
+    expected:
+      min_artifacts: 5
+      min_tests: 2
+      test_passed: true
+      max_cost_usd: 1.00
+      verdict: null
+      forbidden_findings:
+        - "SQL injection"
+        - "hardcoded secret"
+
+  - id: auth-service
+    description: Authentication microservice — should trigger security findings.
+    feature_request: |
+      Build an authentication microservice with FastAPI: user registration,
+      login with JWT tokens, and a /me endpoint.  Hash passwords with bcrypt.
+      Include tests and docker-compose.
+    require_approval: false
+    expected:
+      min_artifacts: 4
+      min_tests: 2
+      test_passed: true
+      max_cost_usd: 1.50
+      verdict: null
+
+  - id: data-pipeline
+    description: ETL pipeline — tests observability agent output.
+    feature_request: |
+      Build a simple ETL pipeline in Python that reads CSV files from a
+      directory, transforms column names to snake_case, and writes the
+      result to Parquet using pandas.  Include unit tests.
+    require_approval: false
+    expected:
+      min_artifacts: 3
+      min_tests: 1
+      test_passed: true
+      max_cost_usd: 1.00
+      verdict: null

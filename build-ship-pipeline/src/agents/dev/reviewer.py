@@ -1,9 +1,9 @@
 """Internal Reviewer agent — final dev-phase sign-off before review phase."""
 from __future__ import annotations
 
-import json
-
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
+from src.agents.outputs import ReviewerOutput
+from src.guardrails import parse_llm_json
 from src.state import PipelineState
 
 _SYSTEM = """You are the Internal Reviewer agent in a software build pipeline.
@@ -38,11 +38,5 @@ def reviewer_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
 
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 
-    try:
-        result = json.loads(text)
-        approved = result.get("approved", False)
-    except json.JSONDecodeError:
-        approved = False
-        result = {"approved": False, "notes": text}
-
-    return {"phase": "review" if approved else "dev"}, usage
+    result = parse_llm_json(text, ReviewerOutput, context="reviewer")
+    return {"phase": "review" if result.approved else "dev"}, usage

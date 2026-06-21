@@ -1,9 +1,9 @@
 """Test Coverage Inspector — coverage gaps, missing edge cases, flaky tests."""
 from __future__ import annotations
 
-import json
-
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
+from src.agents.outputs import ReviewFinding
+from src.guardrails import parse_llm_json_list
 from src.state import Finding, PipelineState
 
 _SYSTEM = """You are a Test Coverage Inspector agent reviewing test suites.
@@ -35,19 +35,9 @@ def coverage_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
 
     text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 
-    findings: list[Finding] = []
-    try:
-        raw = json.loads(text)
-        findings = [
-            Finding(
-                agent="coverage",
-                severity=f.get("severity", "info"),
-                message=f.get("message", ""),
-                location=f.get("location", "unknown"),
-            )
-            for f in raw
-        ]
-    except (json.JSONDecodeError, KeyError):
-        pass
-
+    parsed = parse_llm_json_list(text, ReviewFinding, context="coverage")
+    findings: list[Finding] = [
+        Finding(agent="coverage", severity=f.severity, message=f.message, location=f.location)
+        for f in parsed
+    ]
     return {"findings": findings}, usage

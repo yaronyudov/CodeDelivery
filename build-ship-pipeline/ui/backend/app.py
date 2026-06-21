@@ -7,13 +7,14 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from ui.backend import auth, runs, skills
+from ui.backend.middleware import CorrelationIdMiddleware
 from ui.backend.ws import pipeline_ws, set_main_loop
 
 _FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
@@ -33,6 +34,8 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+    # Correlation-ID + access logging (runs before CORS so the ID is available everywhere)
+    app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_allow_origins,
@@ -49,6 +52,21 @@ def create_app() -> FastAPI:
         # Also wire up the approval gate so it can wait on the same loop
         from src.nodes.approval import set_main_loop as approval_set_loop
         approval_set_loop(loop)
+
+    @app.get("/health", include_in_schema=False)
+    async def health() -> JSONResponse:
+        """Liveness + readiness probe.  Checks DB connectivity."""
+        from ui.backend.dependencies import get_db
+        db = next(get_db())
+        db_ok = False
+        try:
+            with db._pool.connection() as conn:
+                conn.execute("SELECT 1")
+            db_ok = True
+        except Exception:
+            pass
+        status = 200 if db_ok else 503
+        return JSONResponse({"status": "ok" if db_ok else "degraded", "db": db_ok}, status_code=status)
 
     app.include_router(auth.router, prefix="/api/auth")
     app.include_router(runs.router, prefix="/api/runs")
