@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import uuid
 
-from src.agents.base import Usage, call_model, inject_skills
+from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
 from src.state import Artifact, PipelineState
 
 _SYSTEM = """You are the Coder agent in a software build pipeline.
@@ -24,7 +24,7 @@ def coder_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]:
         debug_context = f"\n\nPrevious test failures occurred. debug_attempts={state['debug_attempts']}. Fix the issues."
 
     user_msg = f"Build plan:\n{plan_text}{debug_context}"
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=8192)
+    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=8192, **model_kwargs_from_state(state))
 
     artifacts: list[Artifact] = []
     try:

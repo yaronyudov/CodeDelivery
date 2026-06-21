@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build & Ship Pipeline — Architecture</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e2e4ed;
+    --muted: #6b7280;
+    --orange: #f97316;
+    --orange-dim: #431407;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --teal: #14b8a6;
+    --font: system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.6; }
+
+  /* Layout */
+  .nav { position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; gap: 2rem; z-index: 100; height: 52px; }
+  .nav-logo { font-weight: 700; color: var(--orange); font-size: 1rem; letter-spacing: -.01em; white-space: nowrap; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: .85rem; }
+  .nav a:hover { color: var(--text); }
+  .content { max-width: 1100px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -.03em; color: var(--text); margin-bottom: .4rem; }
+  .subtitle { color: var(--muted); font-size: 1rem; margin-bottom: 3rem; }
+  h2 { font-size: 1.3rem; font-weight: 700; margin: 2.5rem 0 1rem; color: var(--orange); border-left: 3px solid var(--orange); padding-left: .7rem; }
+  h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 .5rem; color: var(--text); }
+  p { color: var(--muted); margin-bottom: .75rem; }
+  code { font-family: var(--mono); font-size: .82em; background: var(--border); padding: .15em .4em; border-radius: 3px; color: var(--orange); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .badge { display: inline-block; font-size: .7rem; font-weight: 700; padding: .2em .6em; border-radius: 999px; letter-spacing: .03em; text-transform: uppercase; }
+  .badge-orange { background: #431407; color: #fb923c; }
+  .badge-blue { background: #1e3a5f; color: #60a5fa; }
+  .badge-green { background: #052e16; color: #4ade80; }
+  .badge-purple { background: #2e1065; color: #c084fc; }
+  .badge-red { background: #450a0a; color: #f87171; }
+  .badge-teal { background: #042f2e; color: #2dd4bf; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; margin-bottom: 1rem; }
+  th { text-align: left; padding: .6rem .8rem; background: var(--border); color: var(--muted); font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+  td { padding: .55rem .8rem; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: top; }
+  td:first-child { color: var(--text); font-family: var(--mono); font-size: .82em; }
+  tr:hover td { background: #ffffff05; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  @media (max-width: 720px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  /* Agent graph */
+  .graph-wrap { overflow-x: auto; }
+  svg text { font-family: var(--font); }
+  .agent-node rect { rx: 8; ry: 8; }
+
+  /* Layer diagram */
+  .layer { border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.5rem; margin-bottom: .6rem; display: flex; align-items: center; gap: 1rem; }
+  .layer-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; min-width: 80px; }
+  .layer-items { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .pill { font-size: .78rem; padding: .25em .75em; border-radius: 999px; border: 1px solid; }
+
+  /* ER diagram */
+  .er-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo">⚙ Build &amp; Ship Pipeline</span>
+  <a href="#overview">Overview</a>
+  <a href="#agents">Agents</a>
+  <a href="#state">State</a>
+  <a href="#skills">Skills</a>
+  <a href="#database">Database</a>
+  <a href="#frontend">Frontend</a>
+  <a href="#security">Security</a>
+</nav>
+
+<div class="content">
+  <h1>Build &amp; Ship Pipeline</h1>
+  <p class="subtitle">Architecture reference — how all the pieces fit together</p>
+
+  <!-- ── OVERVIEW ─────────────────────────────────────────────────────── -->
+  <h2 id="overview">System Overview</h2>
+  <p>A user types a feature request. Twelve LLM agents collaborate to produce working code, tests, Docker config, observability dashboards, and a security/quality audit — all within a hard cost ceiling. The whole pipeline runs in the background while a React UI streams progress in real time.</p>
+
+  <div class="grid-3">
+    <div class="card">
+      <div style="font-size:1.8rem;margin-bottom:.4rem">🤖</div>
+      <h3>12 Specialised Agents</h3>
+      <p>Planner, Coder, Docker, Observability, Tester, Debugger, Reviewer + 5 review specialists. Each has a fixed role and a default model.</p>
+    </div>
+    <div class="card">
+      <div style="font-size:1.8rem;margin-bottom:.4rem">🛡️</div>
+      <h3>Budget Governance</h3>
+      <p>Dynamic per-action token/cost caps tighten as budget depletes. A pre-flight guard blocks calls before they're made. Hard ceilings can never be exceeded.</p>
+    </div>
+    <div class="card">
+      <div style="font-size:1.8rem;margin-bottom:.4rem">🎛️</div>
+      <h3>Skill System</h3>
+      <p>Prompt injections append instructions to agent prompts. Agent toggles disable specific agents for a run. Both support per-session overrides on top of global defaults.</p>
+    </div>
+  </div>
+
+  <!-- ── SYSTEM LAYERS ─────────────────────────────────────────────────── -->
+  <h2>System Layers</h2>
+
+  <div class="layer">
+    <span class="layer-label" style="color:#f97316">Browser</span>
+    <div class="layer-items">
+      <span class="pill" style="border-color:#374151;color:#9ca3af">React SPA (Vite + Tailwind)</span>
+      <span class="pill" style="border-color:#374151;color:#9ca3af">WebSocket streaming</span>
+      <span class="pill" style="border-color:#374151;color:#9ca3af">JWT httpOnly cookies</span>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--border);font-size:1.5rem;margin:.1rem 0">↕</div>
+
+  <div class="layer">
+    <span class="layer-label" style="color:#3b82f6">API</span>
+    <div class="layer-items">
+      <span class="pill" style="border-color:#1e3a5f;color:#60a5fa">FastAPI</span>
+      <span class="pill" style="border-color:#1e3a5f;color:#60a5fa">REST /api/runs /api/skills /api/auth</span>
+      <span class="pill" style="border-color:#1e3a5f;color:#60a5fa">WebSocket /ws/runs/{id}</span>
+      <span class="pill" style="border-color:#1e3a5f;color:#60a5fa">slowapi rate limiting</span>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--border);font-size:1.5rem;margin:.1rem 0">↕</div>
+
+  <div class="layer">
+    <span class="layer-label" style="color:#a855f7">Pipeline</span>
+    <div class="layer-items">
+      <span class="pill" style="border-color:#2e1065;color:#c084fc">LangGraph StateGraph</span>
+      <span class="pill" style="border-color:#2e1065;color:#c084fc">12 agent nodes</span>
+      <span class="pill" style="border-color:#2e1065;color:#c084fc">governed() decorator</span>
+      <span class="pill" style="border-color:#2e1065;color:#c084fc">asyncio.to_thread()</span>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--border);font-size:1.5rem;margin:.1rem 0">↕</div>
+
+  <div class="layer">
+    <span class="layer-label" style="color:#22c55e">LLM</span>
+    <div class="layer-items">
+      <span class="pill" style="border-color:#052e16;color:#4ade80">LiteLLM (unified)</span>
+      <span class="pill" style="border-color:#052e16;color:#4ade80">Anthropic / OpenAI / Groq</span>
+      <span class="pill" style="border-color:#052e16;color:#4ade80">Ollama (local)</span>
+      <span class="pill" style="border-color:#052e16;color:#4ade80">Custom endpoint</span>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--border);font-size:1.5rem;margin:.1rem 0">↕</div>
+
+  <div class="layer">
+    <span class="layer-label" style="color:#14b8a6">Storage</span>
+    <div class="layer-items">
+      <span class="pill" style="border-color:#042f2e;color:#2dd4bf">PostgreSQL (9 tables)</span>
+      <span class="pill" style="border-color:#042f2e;color:#2dd4bf">psycopg3 connection pool</span>
+      <span class="pill" style="border-color:#042f2e;color:#2dd4bf">LangGraph checkpointer</span>
+    </div>
+  </div>
+
+  <!-- ── AGENT GRAPH ────────────────────────────────────────────────────── -->
+  <h2 id="agents">Agent Graph</h2>
+  <p>The pipeline is an acyclic LangGraph StateGraph. Conditional edges allow loops (tester↔debugger, verdict→planner), but LangGraph's checkpointer ensures resumability.</p>
+
+  <div class="graph-wrap">
+  <svg width="900" height="520" viewBox="0 0 900 520" style="display:block;margin:0 auto">
+    <defs>
+      <marker id="arr" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#4b5563"/>
+      </marker>
+      <marker id="arr-red" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#ef4444"/>
+      </marker>
+      <marker id="arr-green" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#22c55e"/>
+      </marker>
+    </defs>
+
+    <!-- START -->
+    <circle cx="80" cy="60" r="18" fill="#f97316"/>
+    <text x="80" y="65" text-anchor="middle" fill="white" font-size="11" font-weight="700">START</text>
+
+    <!-- planner -->
+    <rect x="30" y="110" width="100" height="36" rx="8" fill="#1a1d27" stroke="#f97316" stroke-width="1.5"/>
+    <text x="80" y="132" text-anchor="middle" fill="#f97316" font-size="12" font-weight="600">planner</text>
+
+    <!-- approval_gate -->
+    <polygon points="80,180 130,205 80,230 30,205" fill="#1a1d27" stroke="#eab308" stroke-width="1.5"/>
+    <text x="80" y="209" text-anchor="middle" fill="#eab308" font-size="11">approval?</text>
+
+    <!-- coder -->
+    <rect x="30" y="260" width="100" height="36" rx="8" fill="#1a1d27" stroke="#f97316" stroke-width="1.5"/>
+    <text x="80" y="282" text-anchor="middle" fill="#f97316" font-size="12" font-weight="600">coder</text>
+
+    <!-- docker -->
+    <rect x="190" y="260" width="100" height="36" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="240" y="282" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="600">docker</text>
+
+    <!-- observability -->
+    <rect x="350" y="260" width="120" height="36" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="410" y="282" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="600">observability</text>
+
+    <!-- tester -->
+    <rect x="530" y="260" width="100" height="36" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="580" y="282" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="600">tester</text>
+
+    <!-- debugger -->
+    <rect x="410" y="340" width="100" height="36" rx="8" fill="#1a1d27" stroke="#eab308" stroke-width="1.5"/>
+    <text x="460" y="362" text-anchor="middle" fill="#eab308" font-size="12" font-weight="600">debugger</text>
+
+    <!-- reviewer -->
+    <rect x="700" y="260" width="100" height="36" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="750" y="282" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="600">reviewer</text>
+
+    <!-- review_supervisor -->
+    <rect x="700" y="180" width="120" height="36" rx="8" fill="#1a1d27" stroke="#a855f7" stroke-width="1.5"/>
+    <text x="760" y="202" text-anchor="middle" fill="#a855f7" font-size="12" font-weight="600">review_sup</text>
+
+    <!-- security perf style coverage in a row -->
+    <rect x="600" y="110" width="80" height="32" rx="6" fill="#1a1d27" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="640" y="130" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="600">security</text>
+
+    <rect x="695" y="110" width="60" height="32" rx="6" fill="#1a1d27" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="725" y="130" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="600">perf</text>
+
+    <rect x="770" y="110" width="55" height="32" rx="6" fill="#1a1d27" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="797" y="130" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="600">style</text>
+
+    <rect x="840" y="110" width="50" height="32" rx="6" fill="#1a1d27" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="865" y="130" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="600">cov</text>
+
+    <!-- review_verdict -->
+    <polygon points="760,50 810,72 760,94 710,72" fill="#1a1d27" stroke="#a855f7" stroke-width="1.5"/>
+    <text x="760" y="76" text-anchor="middle" fill="#a855f7" font-size="11">verdict?</text>
+
+    <!-- report -->
+    <rect x="820" y="54" width="70" height="36" rx="8" fill="#052e16" stroke="#22c55e" stroke-width="1.5"/>
+    <text x="855" y="76" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="600">report</text>
+
+    <!-- halt -->
+    <rect x="820" y="340" width="60" height="36" rx="8" fill="#450a0a" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="850" y="362" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="600">halt</text>
+
+    <!-- END -->
+    <circle cx="855" cy="460" r="18" fill="#374151"/>
+    <text x="855" y="465" text-anchor="middle" fill="white" font-size="11" font-weight="700">END</text>
+
+    <!-- Edges -->
+    <!-- START → planner -->
+    <line x1="80" y1="78" x2="80" y2="108" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- planner → approval_gate -->
+    <line x1="80" y1="146" x2="80" y2="178" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- approval_gate → coder (approved) -->
+    <line x1="80" y1="230" x2="80" y2="258" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr-green)"/>
+    <text x="86" y="248" fill="#22c55e" font-size="10">approved</text>
+    <!-- coder → docker -->
+    <line x1="130" y1="278" x2="188" y2="278" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- docker → observability -->
+    <line x1="290" y1="278" x2="348" y2="278" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- observability → tester -->
+    <line x1="470" y1="278" x2="528" y2="278" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- tester → reviewer (passed) -->
+    <line x1="630" y1="278" x2="698" y2="278" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr-green)"/>
+    <text x="647" y="272" fill="#22c55e" font-size="10">passed</text>
+    <!-- tester → debugger (fail) -->
+    <path d="M580 296 Q580 350 512 358" stroke="#eab308" fill="none" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="583" y="335" fill="#eab308" font-size="10">fail</text>
+    <!-- debugger → coder -->
+    <path d="M410 358 Q200 400 80 298" stroke="#eab308" fill="none" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+    <!-- tester → planner (max debug) -->
+    <path d="M580 260 Q580 160 130 146" stroke="#ef4444" fill="none" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr-red)"/>
+    <text x="380" y="195" fill="#ef4444" font-size="10">max retries</text>
+    <!-- reviewer → review_supervisor -->
+    <line x1="750" y1="260" x2="760" y2="218" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- review_supervisor → security -->
+    <line x1="720" y1="180" x2="665" y2="144" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- security → perf → style → coverage -->
+    <line x1="680" y1="126" x2="693" y2="126" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <line x1="755" y1="126" x2="768" y2="126" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <line x1="825" y1="126" x2="838" y2="126" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- coverage → review_verdict -->
+    <path d="M865 110 Q865 80 810 72" stroke="#4b5563" fill="none" stroke-width="1.5" marker-end="url(#arr)"/>
+    <!-- review_verdict → report (clean/minor) -->
+    <line x1="810" y1="72" x2="818" y2="72" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr-green)"/>
+    <text x="820" y="68" fill="#22c55e" font-size="10">clean</text>
+    <!-- review_verdict → planner (critical) -->
+    <path d="M710 72 Q200 40 80 108" stroke="#ef4444" fill="none" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr-red)"/>
+    <text x="360" y="32" fill="#ef4444" font-size="10">critical → redo</text>
+    <!-- report → END -->
+    <line x1="855" y1="90" x2="855" y2="440" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arr-green)"/>
+    <!-- halt → END -->
+    <line x1="850" y1="376" x2="855" y2="440" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arr-red)"/>
+    <!-- approval_gate → halt (rejected) -->
+    <path d="M130 205 Q500 230 818 350" stroke="#ef4444" fill="none" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr-red)"/>
+    <text x="460" y="226" fill="#ef4444" font-size="10">rejected</text>
+
+    <!-- Legend -->
+    <rect x="20" y="420" width="12" height="12" rx="2" fill="none" stroke="#22c55e" stroke-width="1.5"/>
+    <text x="36" y="431" fill="#6b7280" font-size="11">success path</text>
+    <rect x="130" y="420" width="12" height="12" rx="2" fill="none" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="146" y="431" fill="#6b7280" font-size="11">halt / redo path</text>
+    <rect x="260" y="420" width="12" height="12" rx="2" fill="none" stroke="#eab308" stroke-width="1.5"/>
+    <text x="276" y="431" fill="#6b7280" font-size="11">retry loop</text>
+  </svg>
+  </div>
+
+  <!-- ── AGENTS TABLE ───────────────────────────────────────────────────── -->
+  <h2>All Agents</h2>
+  <table>
+    <tr><th>Agent</th><th>Phase</th><th>Default Model</th><th>What it does</th><th>Disableable?</th></tr>
+    <tr><td>planner</td><td><span class="badge badge-orange">dev</span></td><td>claude-sonnet-4-6</td><td>Reads the feature request, produces a build plan and tech stack</td><td><span class="badge badge-red">No — essential</span></td></tr>
+    <tr><td>approval_gate</td><td><span class="badge badge-orange">dev</span></td><td>n/a (zero cost)</td><td>Pauses pipeline for human approval when <code>require_approval=true</code></td><td>n/a</td></tr>
+    <tr><td>coder</td><td><span class="badge badge-orange">dev</span></td><td>claude-sonnet-4-6</td><td>Writes all application source files from the plan</td><td><span class="badge badge-red">No — essential</span></td></tr>
+    <tr><td>docker</td><td><span class="badge badge-orange">dev</span></td><td>claude-haiku-4-5</td><td>Creates Dockerfile and docker-compose.yml</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>observability</td><td><span class="badge badge-orange">dev</span></td><td>claude-haiku-4-5</td><td>Generates OTel instrumentation and Grafana dashboard JSON</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>tester</td><td><span class="badge badge-orange">dev</span></td><td>claude-haiku-4-5</td><td>Writes and runs unit/integration tests, emits pass/fail</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>debugger</td><td><span class="badge badge-orange">dev</span></td><td>claude-sonnet-4-6</td><td>Analyses test failures, suggests fixes, hands back to coder</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>reviewer</td><td><span class="badge badge-orange">dev</span></td><td>claude-haiku-4-5</td><td>Internal code review before specialist chain</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>review_supervisor</td><td><span class="badge badge-purple">review</span></td><td>claude-haiku-4-5</td><td>Orchestrates specialist agents; aggregates verdict</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>security</td><td><span class="badge badge-purple">review</span></td><td>claude-sonnet-4-6</td><td>OWASP-style vulnerability audit</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>perf</td><td><span class="badge badge-purple">review</span></td><td>claude-sonnet-4-6</td><td>Performance and scalability analysis</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>style</td><td><span class="badge badge-purple">review</span></td><td>claude-haiku-4-5</td><td>Code style, formatting, conventions</td><td><span class="badge badge-green">Yes</span></td></tr>
+    <tr><td>coverage</td><td><span class="badge badge-purple">review</span></td><td>claude-haiku-4-5</td><td>Test coverage inspection</td><td><span class="badge badge-green">Yes</span></td></tr>
+  </table>
+
+  <!-- ── PIPELINE STATE ─────────────────────────────────────────────────── -->
+  <h2 id="state">Pipeline State</h2>
+  <p>All data flows through a single <code>PipelineState</code> TypedDict. Agents read from it and return a partial dict with only the fields they change. LangGraph merges the partial result with the current state between every node call.</p>
+  <p>Fields marked <strong>Accumulate</strong> use an <code>Annotated[list, add]</code> reducer — agents must return only the <em>new items</em>, not the full list.</p>
+
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Behaviour</th><th>Set by</th></tr>
+    <tr><td>run_id</td><td>str</td><td>Replace</td><td>initial_state()</td></tr>
+    <tr><td>feature_request</td><td>str</td><td>Replace</td><td>initial_state()</td></tr>
+    <tr><td>phase</td><td>"dev"|"review"|"done"|"halted"</td><td>Replace</td><td>Agents / halt_node</td></tr>
+    <tr><td>plan</td><td>dict</td><td>Replace</td><td>planner</td></tr>
+    <tr><td>tech_stack</td><td>list[str]</td><td>Replace</td><td>planner</td></tr>
+    <tr><td>artifacts</td><td>list[Artifact]</td><td><strong>Accumulate</strong></td><td>coder, docker, observability</td></tr>
+    <tr><td>test_results</td><td>dict</td><td>Replace</td><td>tester</td></tr>
+    <tr><td>debug_attempts</td><td>int</td><td>Replace</td><td>debugger</td></tr>
+    <tr><td>findings</td><td>list[Finding]</td><td><strong>Accumulate</strong></td><td>security, perf, style, coverage</td></tr>
+    <tr><td>verdict</td><td>"clean"|"minor"|"critical"|None</td><td>Replace</td><td>review_supervisor</td></tr>
+    <tr><td>budget</td><td>Budget dict</td><td>Replace</td><td>governed() after each call</td></tr>
+    <tr><td>audit</td><td>list[dict]</td><td><strong>Accumulate</strong></td><td>governed() after each call</td></tr>
+    <tr><td>halt_reason</td><td>str|None</td><td>Replace</td><td>halt_node, budget guard</td></tr>
+    <tr><td>require_approval</td><td>bool</td><td>Replace</td><td>initial_state()</td></tr>
+    <tr><td>approval_status</td><td>"pending"|"approved"|"rejected"|None</td><td>Replace</td><td>approval_gate_node</td></tr>
+    <tr><td>model_config</td><td>dict</td><td>Replace</td><td>initial_state()</td></tr>
+    <tr><td>skill_context</td><td>dict {agent→text}</td><td>Replace</td><td>initial_state() via _compute_skill_context()</td></tr>
+    <tr><td>enabled_agents</td><td>list[str]</td><td>Replace</td><td>initial_state() via _compute_skill_context()</td></tr>
+    <tr><td>_skill_ctx</td><td>str (internal)</td><td>Replace</td><td>governed() per-node — never stored in initial_state</td></tr>
+  </table>
+
+  <!-- ── SKILL SYSTEM ───────────────────────────────────────────────────── -->
+  <h2 id="skills">Skill System</h2>
+  <p>Skills let you customise pipeline behaviour without changing code. They are stored in the <code>skills</code> table and apply globally unless overridden per session.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>prompt_injection</h3>
+      <p>Appends the skill's <code>prompt_addon</code> text to the system prompt of each targeted agent. Used for tech-stack instructions, security checklists, style guides, etc.</p>
+      <p><strong>Example:</strong> <em>"Always write TypeScript. Never use <code>any</code>."</em> targeting <code>coder</code>.</p>
+    </div>
+    <div class="card">
+      <h3>agent_toggle</h3>
+      <p>Removes a specific agent from <code>enabled_agents</code>. The <code>governed()</code> decorator returns <code>{}</code> immediately — no LLM call, zero cost.</p>
+      <p><strong>Example:</strong> <em>skip-docker</em> targeting <code>docker</code>.</p>
+      <p><strong>Restriction:</strong> Cannot target <code>planner</code> or <code>coder</code>.</p>
+    </div>
+  </div>
+
+  <h3>How context is computed at run start</h3>
+  <div class="card" style="font-family:var(--mono);font-size:.82em;color:var(--muted);line-height:1.8">
+    1. Load all <code>is_default=true</code> skills from DB<br>
+    2. Build <code>effective[agent] = set(default_skill_ids)</code> for every agent<br>
+    3. Apply session <code>skill_overrides</code>: <code>{"coder": {"add":["ts"], "remove":["eslint"]}, "*": {"add":["owasp"]}}</code><br>
+    4. <code>prompt_injection</code> skills → join <code>prompt_addon</code> texts → <code>skill_context[agent]</code><br>
+    5. <code>agent_toggle</code> skills → <code>disabled</code> set → <code>enabled_agents = ALL_AGENTS - disabled</code>
+  </div>
+
+  <!-- ── DATABASE ───────────────────────────────────────────────────────── -->
+  <h2 id="database">Database — Entity Relationships</h2>
+
+  <div class="er-wrap">
+  <svg width="860" height="400" viewBox="0 0 860 400" style="display:block;margin:0 auto">
+    <defs>
+      <marker id="fk" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#4b5563"/>
+      </marker>
+    </defs>
+
+    <!-- users -->
+    <rect x="20" y="60" width="130" height="110" rx="8" fill="#1a1d27" stroke="#3b82f6" stroke-width="1.5"/>
+    <rect x="20" y="60" width="130" height="28" rx="8" fill="#1e3a5f"/>
+    <text x="85" y="79" text-anchor="middle" fill="#60a5fa" font-size="12" font-weight="700">users</text>
+    <text x="30" y="106" fill="#6b7280" font-size="11">id (PK)</text>
+    <text x="30" y="122" fill="#6b7280" font-size="11">username</text>
+    <text x="30" y="138" fill="#6b7280" font-size="11">password_hash</text>
+    <text x="30" y="154" fill="#6b7280" font-size="11">is_active</text>
+
+    <!-- pipeline_runs -->
+    <rect x="220" y="20" width="145" height="150" rx="8" fill="#1a1d27" stroke="#f97316" stroke-width="1.5"/>
+    <rect x="220" y="20" width="145" height="28" rx="8" fill="#431407"/>
+    <text x="292" y="39" text-anchor="middle" fill="#fb923c" font-size="12" font-weight="700">pipeline_runs</text>
+    <text x="230" y="66" fill="#6b7280" font-size="11">run_id (PK)</text>
+    <text x="230" y="82" fill="#f97316" font-size="11">user_id (FK)</text>
+    <text x="230" y="98" fill="#6b7280" font-size="11">feature_request</text>
+    <text x="230" y="114" fill="#6b7280" font-size="11">status</text>
+    <text x="230" y="130" fill="#6b7280" font-size="11">model_config (JSON)</text>
+    <text x="230" y="146" fill="#6b7280" font-size="11">require_approval</text>
+    <text x="230" y="162" fill="#6b7280" font-size="11">verdict / created_at</text>
+
+    <!-- artifacts -->
+    <rect x="430" y="20" width="130" height="110" rx="8" fill="#1a1d27" stroke="#14b8a6" stroke-width="1.5"/>
+    <rect x="430" y="20" width="130" height="28" rx="8" fill="#042f2e"/>
+    <text x="495" y="39" text-anchor="middle" fill="#2dd4bf" font-size="12" font-weight="700">artifacts</text>
+    <text x="440" y="66" fill="#6b7280" font-size="11">content_ref (PK)</text>
+    <text x="440" y="82" fill="#14b8a6" font-size="11">run_id (FK)</text>
+    <text x="440" y="98" fill="#6b7280" font-size="11">path / kind / version</text>
+    <text x="440" y="114" fill="#6b7280" font-size="11">content</text>
+
+    <!-- budget_ledger -->
+    <rect x="430" y="160" width="130" height="110" rx="8" fill="#1a1d27" stroke="#14b8a6" stroke-width="1.5"/>
+    <rect x="430" y="160" width="130" height="28" rx="8" fill="#042f2e"/>
+    <text x="495" y="179" text-anchor="middle" fill="#2dd4bf" font-size="12" font-weight="700">budget_ledger</text>
+    <text x="440" y="206" fill="#14b8a6" font-size="11">run_id (FK)</text>
+    <text x="440" y="222" fill="#6b7280" font-size="11">agent / model / step</text>
+    <text x="440" y="238" fill="#6b7280" font-size="11">tokens_in / tokens_out</text>
+    <text x="440" y="254" fill="#6b7280" font-size="11">est_cost / actual_cost</text>
+
+    <!-- audit_log -->
+    <rect x="220" y="210" width="130" height="90" rx="8" fill="#1a1d27" stroke="#14b8a6" stroke-width="1.5"/>
+    <rect x="220" y="210" width="130" height="28" rx="8" fill="#042f2e"/>
+    <text x="285" y="229" text-anchor="middle" fill="#2dd4bf" font-size="12" font-weight="700">audit_log</text>
+    <text x="230" y="256" fill="#14b8a6" font-size="11">run_id (FK)</text>
+    <text x="230" y="272" fill="#6b7280" font-size="11">step / agent / action</text>
+    <text x="230" y="288" fill="#6b7280" font-size="11">decision (JSON)</text>
+
+    <!-- skills -->
+    <rect x="620" y="20" width="130" height="130" rx="8" fill="#1a1d27" stroke="#a855f7" stroke-width="1.5"/>
+    <rect x="620" y="20" width="130" height="28" rx="8" fill="#2e1065"/>
+    <text x="685" y="39" text-anchor="middle" fill="#c084fc" font-size="12" font-weight="700">skills</text>
+    <text x="630" y="66" fill="#6b7280" font-size="11">id (PK slug)</text>
+    <text x="630" y="82" fill="#6b7280" font-size="11">name / description</text>
+    <text x="630" y="98" fill="#6b7280" font-size="11">kind</text>
+    <text x="630" y="114" fill="#6b7280" font-size="11">target_agents (TEXT[])</text>
+    <text x="630" y="130" fill="#6b7280" font-size="11">prompt_addon</text>
+    <text x="630" y="146" fill="#6b7280" font-size="11">is_default / is_system</text>
+
+    <!-- run_skill_overrides -->
+    <rect x="620" y="190" width="145" height="100" rx="8" fill="#1a1d27" stroke="#a855f7" stroke-width="1.5"/>
+    <rect x="620" y="190" width="145" height="28" rx="8" fill="#2e1065"/>
+    <text x="692" y="209" text-anchor="middle" fill="#c084fc" font-size="12" font-weight="700">run_skill_overrides</text>
+    <text x="630" y="236" fill="#f97316" font-size="11">run_id (FK)</text>
+    <text x="630" y="252" fill="#a855f7" font-size="11">skill_id (FK)</text>
+    <text x="630" y="268" fill="#6b7280" font-size="11">agent_name</text>
+    <text x="630" y="284" fill="#6b7280" font-size="11">action (add|remove)</text>
+
+    <!-- memory -->
+    <rect x="20" y="280" width="130" height="90" rx="8" fill="#1a1d27" stroke="#eab308" stroke-width="1.5"/>
+    <rect x="20" y="280" width="130" height="28" rx="8" fill="#422006"/>
+    <text x="85" y="299" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">memory</text>
+    <text x="30" y="326" fill="#6b7280" font-size="11">kind / key / value</text>
+    <text x="30" y="342" fill="#6b7280" font-size="11">cross-run, no FK</text>
+    <text x="30" y="358" fill="#eab308" font-size="10">persistent pattern memory</text>
+
+    <!-- FK arrows -->
+    <!-- users → pipeline_runs -->
+    <line x1="150" y1="115" x2="218" y2="115" stroke="#4b5563" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#fk)"/>
+    <!-- pipeline_runs → artifacts -->
+    <line x1="365" y1="75" x2="428" y2="75" stroke="#4b5563" stroke-width="1.5" marker-end="url(#fk)"/>
+    <!-- pipeline_runs → budget_ledger -->
+    <line x1="365" y1="130" x2="428" y2="215" stroke="#4b5563" stroke-width="1.5" marker-end="url(#fk)"/>
+    <!-- pipeline_runs → audit_log -->
+    <line x1="292" y1="170" x2="285" y2="208" stroke="#4b5563" stroke-width="1.5" marker-end="url(#fk)"/>
+    <!-- pipeline_runs → run_skill_overrides -->
+    <line x1="365" y1="100" x2="618" y2="240" stroke="#f97316" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#fk)"/>
+    <!-- skills → run_skill_overrides -->
+    <line x1="685" y1="150" x2="685" y2="188" stroke="#a855f7" stroke-width="1.5" marker-end="url(#fk)"/>
+  </svg>
+  </div>
+
+  <h3>Table summaries</h3>
+  <table>
+    <tr><th>Table</th><th>Rows per run</th><th>Purpose</th></tr>
+    <tr><td>users</td><td>shared</td><td>Auth — pre-seeded via seed.py, no self-registration</td></tr>
+    <tr><td>pipeline_runs</td><td>1</td><td>Run metadata, status, model config (no API key)</td></tr>
+    <tr><td>artifacts</td><td>~10–50</td><td>Generated file contents keyed by UUID content_ref</td></tr>
+    <tr><td>audit_log</td><td>1 per agent call</td><td>Complete decision trail for every node execution</td></tr>
+    <tr><td>budget_ledger</td><td>1 per LLM call</td><td>Pre/post-flight cost tracking; reconciled after each call</td></tr>
+    <tr><td>knowledge</td><td>varies</td><td>Shared context written by agents for peer consumption</td></tr>
+    <tr><td>memory</td><td>0 (cross-run)</td><td>Persistent patterns and lessons that survive between runs</td></tr>
+    <tr><td>skills</td><td>shared</td><td>Skill definitions — 6 system skills seeded at startup</td></tr>
+    <tr><td>run_skill_overrides</td><td>0–N</td><td>Per-session add/remove on top of default skill set</td></tr>
+  </table>
+
+  <!-- ── FRONTEND ───────────────────────────────────────────────────────── -->
+  <h2 id="frontend">Frontend Components</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>App.tsx — root</h3>
+      <p>Auth gate, global skill state (<code>skillOverrides</code>), SkillsManager overlay toggle. Fetches <code>/api/skills</code> after auth.</p>
+    </div>
+    <div class="card">
+      <h3>Sidebar</h3>
+      <p>Run history list (polls every 5s). Settings icon opens SkillsManager. New run button resets state.</p>
+    </div>
+    <div class="card">
+      <h3>ChatWindow</h3>
+      <p>Feature textarea + ModelPicker + SessionSkills + Execute/Stop. Submits <code>POST /api/runs</code> with skill overrides.</p>
+    </div>
+    <div class="card">
+      <h3>StreamPanel</h3>
+      <p>Real-time CoT: budget bars, per-agent step cards, modified files list, findings sorted by severity.</p>
+    </div>
+    <div class="card">
+      <h3>SessionSkills</h3>
+      <p>Collapsible per-run override picker. Default skills shown as chips (click to disable). + button to add non-defaults. Per-agent accordion.</p>
+    </div>
+    <div class="card">
+      <h3>SkillsManager</h3>
+      <p>Global CRUD panel. Create/edit/delete skills. Toggle <code>is_default</code>. System skills are protected (cannot delete, limited edits).</p>
+    </div>
+    <div class="card">
+      <h3>ApprovalGate</h3>
+      <p>Modal that appears when <code>approvalRequired=true</code> arrives via WebSocket. Shows the plan JSON. Approve/Reject calls <code>/api/runs/{id}/approve</code>.</p>
+    </div>
+    <div class="card">
+      <h3>ModelPicker</h3>
+      <p>Provider dropdown → context-sensitive fields. Anthropic/OpenAI/Groq only need model name. Ollama/Custom also need <code>api_base</code>. Any can supply <code>api_key</code> override.</p>
+    </div>
+  </div>
+
+  <!-- ── SECURITY ───────────────────────────────────────────────────────── -->
+  <h2 id="security">Security Model</h2>
+
+  <table>
+    <tr><th>Concern</th><th>Control</th></tr>
+    <tr><td>Authentication</td><td>bcrypt cost=12 passwords; HS256 JWT in <code>httpOnly, secure, samesite=strict</code> cookie; re-validates account is_active on every request</td></tr>
+    <tr><td>Brute force</td><td>5 login attempts / 15 min per real client IP (X-Real-IP / X-Forwarded-For)</td></tr>
+    <tr><td>CSRF</td><td><code>samesite=strict</code> cookie; no state-changing GET endpoints</td></tr>
+    <tr><td>User enumeration</td><td>Identical error for wrong username vs wrong password</td></tr>
+    <tr><td>API key leakage</td><td>Key held in memory only — stripped before <code>db.create_run()</code>, never stored in DB</td></tr>
+    <tr><td>IDOR on WebSocket</td><td><code>db.get_run(run_id, user.user_id)</code> check before <code>websocket.accept()</code></td></tr>
+    <tr><td>CORS</td><td>Explicit allowlist via <code>ALLOWED_ORIGINS</code> env var; never wildcard with credentials</td></tr>
+    <tr><td>Skill injection DoS</td><td>prompt_addon max 8000 chars, name max 120, description max 500; planner/coder cannot be toggled off</td></tr>
+    <tr><td>Startup secret check</td><td>Server refuses to start if <code>SECRET_KEY</code> env var is not set</td></tr>
+    <tr><td>Error disclosure</td><td>Exception details logged server-side only; generic message to client</td></tr>
+  </table>
+
+  <div style="margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:.82rem;text-align:center">
+    Build &amp; Ship Pipeline · Architecture reference · Generated 2026-06-21
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build & Ship Pipeline — Setup &amp; Configuration Guide</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+    --text: #e2e4ed; --muted: #6b7280;
+    --orange: #f97316; --green: #22c55e; --blue: #3b82f6;
+    --purple: #a855f7; --red: #ef4444; --yellow: #eab308;
+    --font: system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.65; }
+  .nav { position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; gap: 2rem; z-index: 100; height: 52px; }
+  .nav-logo { font-weight: 700; color: var(--orange); font-size: 1rem; white-space: nowrap; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: .85rem; }
+  .nav a:hover { color: var(--text); }
+  .content { max-width: 900px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: .3rem; }
+  .subtitle { color: var(--muted); margin-bottom: 3rem; }
+  h2 { font-size: 1.25rem; font-weight: 700; margin: 3rem 0 1rem; color: var(--orange); border-left: 3px solid var(--orange); padding-left: .7rem; }
+  h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 .4rem; color: var(--text); }
+  p { color: var(--muted); margin-bottom: .6rem; }
+  a { color: var(--blue); }
+  code { font-family: var(--mono); font-size: .82em; background: #1e222f; padding: .15em .4em; border-radius: 3px; color: var(--orange); }
+  pre { background: #0d1017; border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; overflow-x: auto; font-family: var(--mono); font-size: .82em; line-height: 1.7; margin: .75rem 0; color: #c9d1d9; }
+  pre .c { color: #6b7280; }  /* comment */
+  pre .k { color: #f97316; }  /* keyword / var name */
+  pre .s { color: #22c55e; }  /* string value */
+  pre .n { color: #60a5fa; }  /* number */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .callout { border-radius: 8px; padding: .9rem 1.1rem; margin: 1rem 0; font-size: .9rem; display: flex; gap: .7rem; align-items: flex-start; }
+  .callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: .05rem; }
+  .callout-warn { background: #1c1200; border: 1px solid #92400e; }
+  .callout-info { background: #0c1929; border: 1px solid #1e3a5f; }
+  .callout-success { background: #041f0c; border: 1px solid #065f2a; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; margin: .75rem 0; }
+  th { text-align: left; padding: .55rem .75rem; background: var(--border); color: var(--muted); font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+  td { padding: .5rem .75rem; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: top; }
+  td:first-child { color: var(--text); font-family: var(--mono); font-size: .82em; }
+  .req { color: var(--red); font-size: .75rem; font-weight: 700; }
+  .opt { color: var(--muted); font-size: .75rem; }
+  .step { display: flex; gap: 1rem; margin-bottom: 1.75rem; }
+  .step-num { background: var(--orange); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem; flex-shrink: 0; margin-top: .1rem; }
+  .step-body { flex: 1; }
+  .badge { display: inline-block; font-size: .7rem; font-weight: 700; padding: .2em .6em; border-radius: 999px; letter-spacing: .03em; text-transform: uppercase; }
+  .badge-req { background: #450a0a; color: #f87171; }
+  .badge-opt { background: #1a1d27; color: #6b7280; border: 1px solid #2a2d3a; }
+  ul, ol { color: var(--muted); padding-left: 1.4rem; margin-bottom: .6rem; }
+  li { margin-bottom: .3rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media(max-width: 680px){ .grid-2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo">⚙ Build &amp; Ship Pipeline</span>
+  <a href="#prerequisites">Prerequisites</a>
+  <a href="#quickstart">Quickstart</a>
+  <a href="#env">Env Vars</a>
+  <a href="#config">Config Files</a>
+  <a href="#skills-def">Defining Skills</a>
+  <a href="#models">Models</a>
+  <a href="#production">Production</a>
+</nav>
+
+<div class="content">
+  <h1>Setup &amp; Configuration Guide</h1>
+  <p class="subtitle">Everything you need to know to get the pipeline running and configure it for your needs.</p>
+
+  <!-- ── PREREQUISITES ──────────────────────────────────────────────────── -->
+  <h2 id="prerequisites">Prerequisites</h2>
+
+  <table>
+    <tr><th>Requirement</th><th>Version</th><th>Notes</th></tr>
+    <tr><td>Python</td><td>≥ 3.11</td><td>Uses TypedDict, match, tomllib etc.</td></tr>
+    <tr><td>Node.js</td><td>≥ 20 LTS</td><td>Frontend build only</td></tr>
+    <tr><td>PostgreSQL</td><td>≥ 15</td><td>All state, audit, auth; or use Docker Compose</td></tr>
+    <tr><td>Docker + Compose</td><td>v2+</td><td>Optional but recommended for full stack</td></tr>
+    <tr><td>API key</td><td>—</td><td>Anthropic, OpenAI, or Groq — or a local Ollama instance</td></tr>
+  </table>
+
+  <!-- ── QUICKSTART ─────────────────────────────────────────────────────── -->
+  <h2 id="quickstart">Quickstart (Docker Compose)</h2>
+  <p>The fastest way to run the full stack including Postgres, OTel, Grafana, and the UI.</p>
+
+  <div class="step">
+    <span class="step-num">1</span>
+    <div class="step-body">
+      <h3>Clone and enter the project</h3>
+      <pre>git clone https://github.com/yaronyudov/CodeDelivery.git
+cd CodeDelivery/build-ship-pipeline</pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">2</span>
+    <div class="step-body">
+      <h3>Create your <code>.env</code> file</h3>
+      <pre><span class="c"># .env — copy this block and fill in the values</span>
+
+<span class="c"># Required: JWT signing key (generate with: openssl rand -hex 32)</span>
+<span class="k">SECRET_KEY</span>=<span class="s">your-secret-key-here</span>
+
+<span class="c"># Required: initial admin account (seeded to DB at first startup)</span>
+<span class="k">SEED_USERNAME</span>=<span class="s">admin</span>
+<span class="k">SEED_PASSWORD</span>=<span class="s">changeme-in-production</span>
+
+<span class="c"># LLM provider API keys (at least one required)</span>
+<span class="k">ANTHROPIC_API_KEY</span>=<span class="s">sk-ant-...</span>
+<span class="c"># OPENAI_API_KEY=sk-...</span>
+<span class="c"># GROQ_API_KEY=gsk_...</span>
+
+<span class="c"># PostgreSQL (matches docker-compose defaults — change in production)</span>
+<span class="k">POSTGRES_HOST</span>=<span class="s">postgres</span>
+<span class="k">POSTGRES_PORT</span>=<span class="s">5432</span>
+<span class="k">POSTGRES_DB</span>=<span class="s">build_ship</span>
+<span class="k">POSTGRES_USER</span>=<span class="s">pipeline</span>
+<span class="k">POSTGRES_PASSWORD</span>=<span class="s">pipeline_secret</span>
+
+<span class="c"># CORS (leave empty for same-origin production; set for local dev)</span>
+<span class="c"># ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8080</span></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">3</span>
+    <div class="step-body">
+      <h3>Start everything</h3>
+      <pre>docker compose up -d</pre>
+      <p>This starts Postgres, the OTel collector, Prometheus, Loki, Tempo, Grafana, the UI backend, and nginx. The <code>ui</code> service automatically runs <code>python -m ui.backend.seed</code> on first start.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">4</span>
+    <div class="step-body">
+      <h3>Open the UI</h3>
+      <p>Navigate to <strong>https://localhost</strong> (self-signed cert) or <strong>http://localhost:8080</strong> (direct). Log in with <code>SEED_USERNAME</code> / <code>SEED_PASSWORD</code>.</p>
+      <div class="callout callout-success">
+        <span class="callout-icon">✅</span>
+        <div>You should see the login page, then after login: the run history sidebar + feature input. Type a feature request and click Execute.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MANUAL SETUP ───────────────────────────────────────────────────── -->
+  <h2>Local Dev (without Docker)</h2>
+
+  <div class="step">
+    <span class="step-num">1</span>
+    <div class="step-body">
+      <h3>Install Python dependencies</h3>
+      <pre>pip install -e ".[dev]"</pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">2</span>
+    <div class="step-body">
+      <h3>Apply the DB schema</h3>
+      <pre><span class="c"># Start Postgres (e.g. via Docker)</span>
+docker run -d --name pg -e POSTGRES_DB=build_ship \
+  -e POSTGRES_USER=pipeline -e POSTGRES_PASSWORD=pipeline_secret \
+  -p 5432:5432 postgres:16
+
+psql postgresql://pipeline:pipeline_secret@localhost:5432/build_ship \
+  -f src/db/schema.sql</pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">3</span>
+    <div class="step-body">
+      <h3>Seed the database</h3>
+      <pre>SEED_USERNAME=admin SEED_PASSWORD=changeme python -m ui.backend.seed</pre>
+      <p>This creates the admin user and inserts the 6 built-in system skills. Idempotent — safe to run multiple times.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">4</span>
+    <div class="step-body">
+      <h3>Build the frontend</h3>
+      <pre>cd ui/frontend
+npm install
+npm run build
+cd ../..</pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">5</span>
+    <div class="step-body">
+      <h3>Start the backend</h3>
+      <pre>SECRET_KEY=$(openssl rand -hex 32) \
+POSTGRES_HOST=localhost \
+ANTHROPIC_API_KEY=sk-ant-... \
+uvicorn ui.backend.app:app --port 8080 --reload</pre>
+    </div>
+  </div>
+
+  <!-- ── ENVIRONMENT VARIABLES ──────────────────────────────────────────── -->
+  <h2 id="env">Environment Variables</h2>
+
+  <h3>Required <span class="badge badge-req">must set</span></h3>
+  <table>
+    <tr><th>Variable</th><th>Example</th><th>What it does</th></tr>
+    <tr><td>SECRET_KEY</td><td><code>openssl rand -hex 32</code></td><td>HS256 JWT signing key. Server refuses to start if absent.</td></tr>
+    <tr><td>SEED_PASSWORD</td><td><code>MyStr0ng!Pass</code></td><td>Password for the initial admin user (bcrypt-hashed at seed time).</td></tr>
+    <tr><td><em>At least one LLM key</em></td><td><code>ANTHROPIC_API_KEY=sk-...</code></td><td>Used by LiteLLM unless per-run key provided in UI.</td></tr>
+    <tr><td>POSTGRES_HOST</td><td><code>localhost</code> or <code>postgres</code></td><td>Postgres hostname.</td></tr>
+  </table>
+
+  <h3>Optional <span class="badge badge-opt">have defaults</span></h3>
+  <table>
+    <tr><th>Variable</th><th>Default</th><th>Notes</th></tr>
+    <tr><td>SEED_USERNAME</td><td>admin</td><td>Username for the seeded account.</td></tr>
+    <tr><td>POSTGRES_PORT</td><td>5432</td><td></td></tr>
+    <tr><td>POSTGRES_DB</td><td>build_ship</td><td></td></tr>
+    <tr><td>POSTGRES_USER</td><td>pipeline</td><td></td></tr>
+    <tr><td>POSTGRES_PASSWORD</td><td>pipeline_secret</td><td><strong>Change in production.</strong></td></tr>
+    <tr><td>ALLOWED_ORIGINS</td><td><em>empty</em></td><td>CORS allowlist. Leave empty in production (same-origin). Dev: <code>http://localhost:5173</code></td></tr>
+    <tr><td>OPENAI_API_KEY</td><td>—</td><td>Used automatically if you select an OpenAI model.</td></tr>
+    <tr><td>GROQ_API_KEY</td><td>—</td><td>Used automatically if you select a Groq model.</td></tr>
+  </table>
+
+  <!-- ── CONFIG FILES ───────────────────────────────────────────────────── -->
+  <h2 id="config">Configuration Files</h2>
+
+  <h3>config/budget.yaml — cost ceilings</h3>
+  <p>Controls how much money/tokens a single pipeline run may consume. Applied globally to every run.</p>
+  <pre><span class="k">budget</span>:
+  <span class="c"># Global ceilings for the entire pipeline run</span>
+  <span class="k">tokens_limit</span>: <span class="n">2_000_000</span>       <span class="c"># total tokens across all agents</span>
+  <span class="k">cost_limit_usd</span>: <span class="n">5.00</span>          <span class="c"># USD hard ceiling per run</span>
+  <span class="k">steps_limit</span>: <span class="n">120</span>              <span class="c"># max number of agent calls</span>
+
+  <span class="c"># Hard ceilings per single LLM call (never exceeded regardless of dynamic caps)</span>
+  <span class="k">hard_action_token_ceil</span>: <span class="n">60_000</span>
+  <span class="k">hard_action_cost_ceil_usd</span>: <span class="n">0.50</span>
+
+  <span class="c"># Debugger loops back to coder this many times before escalating to planner</span>
+  <span class="k">debug_max_attempts</span>: <span class="n">3</span></pre>
+
+  <div class="callout callout-info">
+    <span class="callout-icon">ℹ️</span>
+    <div>The governance layer enforces dynamic caps: as <code>cost_used_usd</code> approaches <code>cost_limit_usd</code>, per-action limits tighten proportionally. The pre-flight budget check happens <em>before</em> every LLM call, so the ceiling can never be exceeded.</div>
+  </div>
+
+  <h3>config/prices.yaml — model pricing and assignments</h3>
+  <p>Controls which model each agent uses by default and how much each model costs (used for pre-flight estimation and budget reconciliation).</p>
+  <pre><span class="c"># USD per 1K tokens — update when providers change pricing</span>
+<span class="k">prices</span>:
+  <span class="k">claude-sonnet-4-6</span>:
+    <span class="k">in</span>: <span class="n">0.003</span>
+    <span class="k">out</span>: <span class="n">0.015</span>
+  <span class="k">claude-haiku-4-5-20251001</span>:
+    <span class="k">in</span>: <span class="n">0.00025</span>
+    <span class="k">out</span>: <span class="n">0.00125</span>
+
+<span class="c"># Default model per agent role</span>
+<span class="k">agent_models</span>:
+  <span class="k">planner</span>: <span class="s">claude-sonnet-4-6</span>    <span class="c"># needs deep reasoning</span>
+  <span class="k">coder</span>: <span class="s">claude-sonnet-4-6</span>      <span class="c"># needs reliable code generation</span>
+  <span class="k">docker</span>: <span class="s">claude-haiku-4-5-20251001</span>  <span class="c"># simpler task, cheaper model</span>
+  <span class="k">security</span>: <span class="s">claude-sonnet-4-6</span>  <span class="c"># needs security expertise</span>
+  <span class="c"># ... (others default to haiku)</span>
+
+<span class="c"># Expected output tokens per agent (used in pre-flight cost estimation)</span>
+<span class="k">expected_output_tokens</span>:
+  <span class="k">planner</span>: <span class="n">2000</span>
+  <span class="k">coder</span>: <span class="n">4000</span></pre>
+
+  <div class="callout callout-warn">
+    <span class="callout-icon">⚠️</span>
+    <div>The model a user selects in the UI overrides <code>agent_models</code> — that model is used for <em>all</em> agents. Per-agent model assignment only applies when no per-run override is set.</div>
+  </div>
+
+  <!-- ── DEFINING SKILLS ────────────────────────────────────────────────── -->
+  <h2 id="skills-def">Defining Skills</h2>
+  <p>Skills let you change what every pipeline run does without touching code. There are two kinds:</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>prompt_injection</h3>
+      <p>Appends <code>prompt_addon</code> text to an agent's system prompt. Great for:</p>
+      <ul>
+        <li>Technology stack requirements (<em>"always TypeScript"</em>)</li>
+        <li>Security checklists (<em>"check OWASP Top 10"</em>)</li>
+        <li>Code style rules (<em>"use Google style guide"</em>)</li>
+        <li>Framework preferences (<em>"use FastAPI, not Flask"</em>)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>agent_toggle</h3>
+      <p>Removes an agent from the run entirely (zero LLM cost). Great for:</p>
+      <ul>
+        <li>Skipping Docker if you don't containerise</li>
+        <li>Skipping observability in quick prototypes</li>
+        <li>Skipping coverage review for spike/throwaway code</li>
+      </ul>
+      <p><strong>Note:</strong> <code>planner</code> and <code>coder</code> are protected — they cannot be disabled.</p>
+    </div>
+  </div>
+
+  <h3>Creating a skill via the UI</h3>
+  <ol>
+    <li>Log in to the pipeline UI</li>
+    <li>Click the ⚙ Settings icon at the bottom of the sidebar</li>
+    <li>Click <strong>New Skill</strong> in the SkillsManager panel</li>
+    <li>Fill in the fields (see table below) and click <strong>Create</strong></li>
+    <li>Optionally toggle <strong>Default</strong> to apply it to every future run automatically</li>
+  </ol>
+
+  <h3>Skill fields explained</h3>
+  <table>
+    <tr><th>Field</th><th>Required?</th><th>Rules</th><th>Example</th></tr>
+    <tr><td>id</td><td><span class="badge badge-req">required</span></td><td>Lowercase letters, digits, hyphens only. Max 64 chars. Must be unique.</td><td><code>use-typescript</code></td></tr>
+    <tr><td>name</td><td><span class="badge badge-req">required</span></td><td>1–120 chars. Human-readable label.</td><td>Use TypeScript</td></tr>
+    <tr><td>description</td><td><span class="badge badge-opt">optional</span></td><td>Max 500 chars. Shown in the skills list.</td><td>Always write TS, never plain JS.</td></tr>
+    <tr><td>kind</td><td><span class="badge badge-req">required</span></td><td><code>prompt_injection</code> or <code>agent_toggle</code></td><td><code>prompt_injection</code></td></tr>
+    <tr><td>target_agents</td><td><span class="badge badge-opt">optional</span></td><td>List of agent names. Empty list = all agents.</td><td><code>["coder"]</code></td></tr>
+    <tr><td>prompt_addon</td><td>if kind=prompt_injection</td><td>Max 8000 chars. Text appended to the system prompt.</td><td>Always write TypeScript. Use strict mode.</td></tr>
+    <tr><td>is_default</td><td><span class="badge badge-opt">optional</span></td><td>If true, applied automatically to every run unless overridden.</td><td>true</td></tr>
+  </table>
+
+  <h3>Creating a skill via the API</h3>
+  <pre><span class="c"># First, get a session cookie by logging in</span>
+curl -c cookies.txt -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"changeme"}'
+
+<span class="c"># Create a prompt_injection skill for the coder agent</span>
+curl -b cookies.txt -X POST http://localhost:8080/api/skills \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "use-typescript",
+    "name": "Use TypeScript",
+    "description": "Always write TypeScript with strict mode",
+    "kind": "prompt_injection",
+    "target_agents": ["coder"],
+    "prompt_addon": "Always write TypeScript (never plain JavaScript). Enable strict mode. Avoid any type.",
+    "is_default": true
+  }'
+
+<span class="c"># Create an agent_toggle skill to disable security review</span>
+curl -b cookies.txt -X POST http://localhost:8080/api/skills \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "skip-security-review",
+    "name": "Skip Security Review",
+    "kind": "agent_toggle",
+    "target_agents": ["security"],
+    "is_default": false
+  }'
+
+<span class="c"># Make a skill the default (or un-default it)</span>
+curl -b cookies.txt -X PATCH http://localhost:8080/api/skills/use-typescript/default
+
+<span class="c"># List all skills</span>
+curl -b cookies.txt http://localhost:8080/api/skills</pre>
+
+  <h3>Per-session skill overrides</h3>
+  <p>When starting a run, you can override the global defaults per-agent. This is exposed in the UI via the <strong>Session Skills</strong> panel (collapsed under the feature textarea).</p>
+
+  <p>Via API, send <code>skill_overrides</code> in the start run body:</p>
+  <pre><span class="c"># Start a run with skill overrides</span>
+curl -b cookies.txt -X POST http://localhost:8080/api/runs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "feature_request": "Build a REST API for a todo app with authentication",
+    "model_config": {"provider": "anthropic", "model": "anthropic/claude-sonnet-4-6"},
+    "require_approval": false,
+    "skill_overrides": {
+      "*": {
+        "add": ["use-typescript"],    <span class="c">// add to ALL agents</span>
+        "remove": []
+      },
+      "coder": {
+        "add": ["fastapi-style"],     <span class="c">// add only to coder</span>
+        "remove": []
+      },
+      "docker": {
+        "add": [],
+        "remove": []                  <span class="c">// empty = no change vs defaults</span>
+      }
+    }
+  }'</pre>
+
+  <div class="callout callout-info">
+    <span class="callout-icon">ℹ️</span>
+    <div>The <code>"*"</code> key applies to all agents. Per-agent keys are merged on top. <code>remove</code> can disable a default skill for this run only without permanently changing the global default.</div>
+  </div>
+
+  <!-- ── MODEL CONFIGURATION ────────────────────────────────────────────── -->
+  <h2 id="models">Configuring Models</h2>
+  <p>The pipeline uses <strong>LiteLLM</strong> as a unified interface, so any model it supports works here.</p>
+
+  <h3>Model string format</h3>
+  <table>
+    <tr><th>Provider</th><th>Model string format</th><th>Required extra</th></tr>
+    <tr><td>Anthropic</td><td><code>anthropic/claude-sonnet-4-6</code></td><td><code>ANTHROPIC_API_KEY</code></td></tr>
+    <tr><td>OpenAI</td><td><code>openai/gpt-4o</code>, <code>openai/gpt-4o-mini</code></td><td><code>OPENAI_API_KEY</code></td></tr>
+    <tr><td>Groq</td><td><code>groq/llama-3.1-70b-versatile</code></td><td><code>GROQ_API_KEY</code></td></tr>
+    <tr><td>Ollama (local)</td><td><code>ollama/llama3</code>, <code>ollama/mistral</code></td><td><code>api_base=http://localhost:11434</code></td></tr>
+    <tr><td>Azure OpenAI</td><td><code>azure/your-deployment</code></td><td><code>api_base</code> + <code>api_key</code></td></tr>
+    <tr><td>Custom endpoint</td><td><code>openai/your-model</code></td><td><code>api_base=https://your.endpoint/v1</code> + <code>api_key</code></td></tr>
+  </table>
+
+  <h3>Changing default models per agent</h3>
+  <p>Edit <code>config/prices.yaml</code> → <code>agent_models</code> section. The server reads this at startup — restart after changes.</p>
+  <pre><span class="k">agent_models</span>:
+  <span class="k">planner</span>: <span class="s">openai/gpt-4o</span>           <span class="c"># use GPT-4o for planning</span>
+  <span class="k">coder</span>: <span class="s">anthropic/claude-sonnet-4-6</span>  <span class="c"># keep Sonnet for coding</span>
+  <span class="k">security</span>: <span class="s">groq/llama-3.1-70b-versatile</span>  <span class="c"># cheap model for review</span></pre>
+
+  <div class="callout callout-warn">
+    <span class="callout-icon">⚠️</span>
+    <div>Add the model's prices to the <code>prices</code> section too, or budget estimation will fail. Keys must match exactly what LiteLLM uses.</div>
+  </div>
+
+  <h3>Using Ollama (local models)</h3>
+  <ol>
+    <li>Install Ollama: <a href="https://ollama.ai">ollama.ai</a></li>
+    <li>Pull a model: <code>ollama pull llama3</code></li>
+    <li>In the UI ModelPicker, select <strong>Ollama</strong>, set model to <code>ollama/llama3</code>, and set API base to <code>http://localhost:11434</code></li>
+    <li>No API key needed</li>
+  </ol>
+
+  <!-- ── RUNNING IN PRODUCTION ──────────────────────────────────────────── -->
+  <h2 id="production">Production Checklist</h2>
+
+  <div class="callout callout-warn">
+    <span class="callout-icon">⚠️</span>
+    <div>Never use the Docker Compose defaults (<code>pipeline_secret</code>) in production. Change all passwords and secrets.</div>
+  </div>
+
+  <h3>Security hardening</h3>
+  <ul>
+    <li>Generate a strong <code>SECRET_KEY</code>: <code>openssl rand -hex 32</code></li>
+    <li>Use a strong <code>SEED_PASSWORD</code> (min 16 chars, mixed case + symbols)</li>
+    <li>Set <code>POSTGRES_PASSWORD</code> to something unique, not <code>pipeline_secret</code></li>
+    <li>Leave <code>ALLOWED_ORIGINS</code> empty in production (nginx serves everything from the same origin)</li>
+    <li>Put the app behind nginx with TLS (already configured in <code>ui/nginx.conf</code>)</li>
+    <li>Restrict Postgres to localhost / internal network only</li>
+  </ul>
+
+  <h3>Updating model prices</h3>
+  <p>When providers change pricing, update <code>config/prices.yaml</code> and restart. The budget ledger uses estimated costs at call time — old rows are not retroactively updated.</p>
+
+  <h3>Grafana dashboards</h3>
+  <p>Available at <code>http://localhost:3000</code> (admin/admin by default). Three pre-built dashboards:</p>
+  <ul>
+    <li><strong>Pipeline Overview</strong> — run counts, success rate, total spend</li>
+    <li><strong>Agent Performance</strong> — per-agent latency, token usage, cost</li>
+    <li><strong>Budget Alerts</strong> — runs approaching or exceeding ceilings</li>
+  </ul>
+
+  <h3>Verifying everything works</h3>
+  <pre><span class="c"># Run unit tests (no LLM calls needed)</span>
+pytest tests/unit/ -v
+
+<span class="c"># Check the DB has the 6 system skills</span>
+psql $DATABASE_URL -c "SELECT id, kind, is_default FROM skills;"
+
+<span class="c"># Verify the API is up</span>
+curl -s http://localhost:8080/api/auth/me | python -m json.tool</pre>
+
+  <div class="callout callout-success">
+    <span class="callout-icon">✅</span>
+    <div>If <code>pytest</code> shows 16/16 passed, <code>SELECT</code> returns 6 skills, and <code>/api/auth/me</code> returns a 401 (unauthenticated — expected), the system is healthy.</div>
+  </div>
+
+  <!-- ── TROUBLESHOOTING ────────────────────────────────────────────────── -->
+  <h2>Troubleshooting</h2>
+
+  <table>
+    <tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
+    <tr><td>Server refuses to start with RuntimeError</td><td><code>SECRET_KEY</code> not set</td><td>Set <code>SECRET_KEY</code> env var. Generate: <code>openssl rand -hex 32</code></td></tr>
+    <tr><td>Login always returns 401</td><td>Wrong password or seed not run</td><td>Run <code>python -m ui.backend.seed</code></td></tr>
+    <tr><td>WebSocket disconnects immediately</td><td>Cookie missing or run not owned by user</td><td>Ensure you're logged in; reload and try again</td></tr>
+    <tr><td>Pipeline halts with "budget exceeded"</td><td><code>cost_limit_usd</code> too low for the task</td><td>Increase limit in <code>config/budget.yaml</code> or use a cheaper model</td></tr>
+    <tr><td>Ollama model times out</td><td><code>api_base</code> wrong or Ollama not running</td><td>Check <code>ollama serve</code> is running; verify <code>api_base=http://localhost:11434</code></td></tr>
+    <tr><td>Skill not appearing after creation</td><td>Browser cached the skills list</td><td>Close and reopen SkillsManager to force a refetch</td></tr>
+    <tr><td>agent_toggle skill not disabling agent</td><td><code>target_agents</code> empty (means all) or wrong name</td><td>Check agent name spelling matches <code>_ALL_AGENTS</code> in <code>src/state.py</code></td></tr>
+    <tr><td>Custom model endpoint not used</td><td>api_base / api_key not passed through</td><td>This was a bug — fixed in security round 2. Pull latest.</td></tr>
+  </table>
+
+  <div style="margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:.82rem;text-align:center">
+    Build &amp; Ship Pipeline · Setup &amp; Configuration Guide · 2026-06-21
+  </div>
+</div>
+</body>
+</html>

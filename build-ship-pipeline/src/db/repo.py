@@ -287,8 +287,11 @@ class PipelineRepo:
             return
         cols = ", ".join(f"{k}=%s" for k, _ in sets)
         vals = [v for _, v in sets] + [skill_id]
+        # Field-level restrictions for system skills are enforced at the API layer
+        # (only prompt_addon / is_default may be changed); the DELETE path keeps its
+        # own is_system guard.
         with self._pool.connection() as conn:
-            conn.execute(f"UPDATE skills SET {cols} WHERE id=%s AND is_system=false", vals)
+            conn.execute(f"UPDATE skills SET {cols} WHERE id=%s", vals)
 
     def delete_skill(self, skill_id: str) -> bool:
         with self._pool.connection() as conn:
@@ -307,7 +310,7 @@ class PipelineRepo:
     def get_default_skills(self) -> list[dict]:
         with self._pool.connection() as conn:
             rows = conn.execute(
-                "SELECT id, name, kind, target_agents, prompt_addon FROM skills WHERE is_default=true",
+                "SELECT id, name, description, kind, target_agents, prompt_addon, is_default, is_system, created_at FROM skills WHERE is_default=true",
                 row_factory=dict_row,
             ).fetchall()
             return [dict(r) for r in rows]

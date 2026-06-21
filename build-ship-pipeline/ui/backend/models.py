@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Agents that must always run — disabling them produces an empty/broken pipeline.
+_ESSENTIAL_AGENTS = {"planner", "coder"}
 
 
 class LoginRequest(BaseModel):
@@ -62,20 +65,27 @@ class ApproveRequest(BaseModel):
 # ── Skill schemas ──────────────────────────────────────────────────────────────
 
 class SkillCreate(BaseModel):
-    id: str = Field(..., pattern=r"^[a-z0-9-]+$", description="URL-safe slug")
-    name: str
-    description: str = ""
+    id: str = Field(..., pattern=r"^[a-z0-9-]+$", max_length=64, description="URL-safe slug")
+    name: str = Field(..., min_length=1, max_length=120)
+    description: str = Field("", max_length=500)
     kind: Literal["prompt_injection", "agent_toggle"]
-    target_agents: list[str] = []   # empty = all agents
-    prompt_addon: str | None = None
+    target_agents: list[str] = Field(default_factory=list, max_length=32)  # empty = all agents
+    prompt_addon: str | None = Field(None, max_length=8000)
     is_default: bool = False
+
+    @field_validator("target_agents")
+    @classmethod
+    def _no_essential_toggle(cls, v: list[str], info) -> list[str]:
+        if info.data.get("kind") == "agent_toggle" and _ESSENTIAL_AGENTS.intersection(v):
+            raise ValueError(f"agent_toggle skills cannot disable essential agents: {sorted(_ESSENTIAL_AGENTS)}")
+        return v
 
 
 class SkillUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    target_agents: list[str] | None = None
-    prompt_addon: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=120)
+    description: str | None = Field(None, max_length=500)
+    target_agents: list[str] | None = Field(None, max_length=32)
+    prompt_addon: str | None = Field(None, max_length=8000)
     is_default: bool | None = None
 
 

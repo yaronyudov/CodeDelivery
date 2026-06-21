@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from src.agents.base import Usage, call_model, inject_skills
+from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
 from src.state import Finding, PipelineState
 
 _SYSTEM = """You are a Style Checker agent reviewing source code.
@@ -31,7 +31,7 @@ def style_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
         f"Review these source files for style issues:\n{json.dumps(artifact_paths)}"
     )
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg)
+    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
 
     findings: list[Finding] = []
     try:
