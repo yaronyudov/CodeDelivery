@@ -20,14 +20,16 @@ def governed(agent_name: str, db: Any = None) -> Callable:
     where Usage has attributes: .in_ (int), .out (int), .total (int).
 
     On BudgetExceeded the node returns a halt dict without making any LLM call.
+    Model identity and custom endpoint/key are pulled from state["model_config"].
     """
 
     def decorator(node_fn: Callable) -> Callable:
         def inner(state: PipelineState) -> dict:
-            model = PRICES_CFG.model_for(agent_name)
+            # Resolve model from state config or default from prices config
+            cfg = state.get("model_config") or {}
+            model = cfg.get("model") or PRICES_CFG.model_for(agent_name)
             expected_out = PRICES_CFG.expected_out(agent_name)
 
-            # Build prompt token estimate lazily (cheap call expected from node)
             prompt_tokens = _estimate_prompt_tokens(agent_name, state)
 
             with tracer.start_as_current_span(f"agent.{agent_name}") as span:
@@ -36,7 +38,17 @@ def governed(agent_name: str, db: Any = None) -> Callable:
                 span.set_attribute("model", model)
                 span.set_attribute("step", state["budget"]["steps_taken"])
 
-                # PRE-FLIGHT CHECK
+                # Check stop flag (UI "Stop" button)
+                if state.get("_stop_requested"):
+                    reason = "stopped by user"
+                    halt_counter.add(1, {"agent": agent_name, "reason": "stop"})
+                    return {
+                        "phase": "halted",
+                        "halt_reason": reason,
+                        "audit": [{"agent": agent_name, "halt": reason}],
+                    }
+
+                # PRE-FLIGHT BUDGET CHECK
                 try:
                     budget_guard(agent_name, model, prompt_tokens, expected_out, state, db)
                 except BudgetExceeded as exc:
@@ -53,7 +65,6 @@ def governed(agent_name: str, db: Any = None) -> Callable:
                 result, usage = node_fn(state, model)
                 elapsed = time.perf_counter() - t0
 
-                # POST-FLIGHT: reconcile actual spend
                 actual_cost = estimate_cost(model, usage.in_, usage.out)
                 if db is not None:
                     db.reconcile_ledger(state["run_id"], agent_name, actual_cost)
@@ -91,14 +102,8 @@ def governed(agent_name: str, db: Any = None) -> Callable:
 
 
 def _estimate_prompt_tokens(agent: str, state: PipelineState) -> int:
-    """Rough token estimate for the prompt this agent would build.
-
-    Real nodes can override this by setting state['_prompt_tokens'] before
-    the guard runs; otherwise we use a conservative heuristic.
-    """
-    base = 500  # system prompt
+    base = 500
     base += len(state.get("feature_request", "")) // 4
     base += len(str(state.get("plan", {}))) // 4
-    # Findings accumulate and get fed into later agents
     base += len(state.get("findings", [])) * 50
     return base

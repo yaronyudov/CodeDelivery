@@ -22,9 +22,16 @@ from src.agents.review.style import style_node
 from src.agents.review.supervisor import review_supervisor_node
 from src.config import BUDGET_CFG
 from src.governance.governed import governed
+from src.nodes.approval import approval_gate_node
 from src.nodes.halt import halt_node
 from src.nodes.report import report_node
 from src.state import PipelineState
+
+
+def _after_approval(state: PipelineState) -> str:
+    if state["phase"] == "halted":
+        return "halt"
+    return "coder"
 
 
 def _after_tester(state: PipelineState) -> str:
@@ -33,7 +40,7 @@ def _after_tester(state: PipelineState) -> str:
     if state.get("test_results", {}).get("passed", False):
         return "reviewer"
     if state.get("debug_attempts", 0) >= BUDGET_CFG.debug_max_attempts:
-        return "planner"  # escalate: too many failures, re-scope the plan
+        return "planner"
     return "debugger"
 
 
@@ -45,24 +52,17 @@ def _verdict_router(state: PipelineState) -> str:
     if state["phase"] == "halted":
         return "halt"
     if state.get("verdict") == "critical":
-        return "planner"  # loop back to dev phase with findings injected
-    return "report"  # clean or minor → ship it
+        return "planner"
+    return "report"
 
 
 def build_graph(db: Any = None) -> Any:
-    """Build and compile the pipeline StateGraph.
-
-    Args:
-        db: optional PipelineRepo instance, threaded through governed() for
-            ledger writes and artifact caching.
-
-    Returns:
-        A compiled LangGraph app (with Postgres checkpointer if env vars set).
-    """
+    """Build and compile the pipeline StateGraph."""
     g = StateGraph(PipelineState)
 
     # ── Dev phase nodes ────────────────────────────────────────────────
     g.add_node("planner", governed("planner", db)(planner_node))
+    g.add_node("approval_gate", approval_gate_node)  # zero-cost; no LLM
     g.add_node("coder", governed("coder", db)(
         lambda s, m: coder_node(s, m, db)
     ))
@@ -79,8 +79,6 @@ def build_graph(db: Any = None) -> Any:
     g.add_node("reviewer", governed("reviewer", db)(reviewer_node))
 
     # ── Review phase nodes ────────────────────────────────────────────
-    # review_supervisor: entry point that sets up context for specialists
-    # review_verdict: aggregator called after all specialists complete
     g.add_node("review_supervisor", governed("review_sup", db)(review_supervisor_node))
     g.add_node("review_verdict", governed("review_sup", db)(review_supervisor_node))
     g.add_node("security", governed("security", db)(security_node))
@@ -94,9 +92,14 @@ def build_graph(db: Any = None) -> Any:
 
     # ── Dev phase edges ────────────────────────────────────────────────
     g.add_edge(START, "planner")
-    g.add_edge("planner", "coder")
+    g.add_edge("planner", "approval_gate")  # gate between planner and coder
+    g.add_conditional_edges(
+        "approval_gate",
+        _after_approval,
+        {"halt": "halt", "coder": "coder"},
+    )
     g.add_edge("coder", "docker")
-    g.add_edge("docker", "observability")   # peer: docker → obs
+    g.add_edge("docker", "observability")
     g.add_edge("observability", "tester")
 
     g.add_conditional_edges(
@@ -104,7 +107,7 @@ def build_graph(db: Any = None) -> Any:
         _after_tester,
         {"halt": "halt", "reviewer": "reviewer", "planner": "planner", "debugger": "debugger"},
     )
-    g.add_edge("debugger", "coder")  # fixes flow back to coder
+    g.add_edge("debugger", "coder")
 
     g.add_conditional_edges(
         "reviewer",
@@ -112,9 +115,7 @@ def build_graph(db: Any = None) -> Any:
         {"halt": "halt", "review_supervisor": "review_supervisor"},
     )
 
-    # ── Review phase: sequential specialist chain then verdict ────────────
-    # LangGraph requires acyclic edges, so we run specialists in sequence
-    # (security → perf → style → coverage) then aggregate in review_supervisor.
+    # ── Review phase: sequential specialist chain then verdict ─────────
     g.add_edge("review_supervisor", "security")
     g.add_edge("security", "perf")
     g.add_edge("perf", "style")
@@ -127,17 +128,14 @@ def build_graph(db: Any = None) -> Any:
         {"halt": "halt", "planner": "planner", "report": "report"},
     )
 
-    # ── Terminal edges ────────────────────────────────────────────────
     g.add_edge("report", END)
     g.add_edge("halt", END)
 
-    # ── Checkpointer (optional Postgres) ─────────────────────────────
     checkpointer = _make_checkpointer()
     return g.compile(checkpointer=checkpointer)
 
 
 def _make_checkpointer():
-    """Return a Postgres checkpointer if DB env vars are set, else None."""
     host = os.getenv("POSTGRES_HOST")
     if not host:
         return None
