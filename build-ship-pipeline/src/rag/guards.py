@@ -11,6 +11,7 @@ These guards enforce hard caps so a malicious or malformed input cannot:
 
 All limits are deliberately generous; they are a safety net, not a policy.
 """
+
 from __future__ import annotations
 
 import re
@@ -18,8 +19,8 @@ import re
 # Hard caps — tuned to be far above any legitimate use.
 MAX_QUERY_CHARS = 8_000
 MAX_K = 100
-MAX_DOC_CHARS = 100_000          # per chunk, before indexing
-MAX_CONTENT_TO_LLM = 4_000       # truncate content fed into extraction/judge prompts
+MAX_DOC_CHARS = 100_000  # per chunk, before indexing
+MAX_CONTENT_TO_LLM = 4_000  # truncate content fed into extraction/judge prompts
 
 # Corpus names are used in parameterised SQL, but we still allowlist the shape
 # so they can be safely embedded in metrics labels and log lines.
@@ -37,6 +38,7 @@ class RagInputError(ValueError):
 def _record_rejection(reason: str) -> None:
     try:
         from src.observability.tracing import rag_rejected_counter
+
         rag_rejected_counter.add(1, {"reason": reason})
     except Exception:
         pass

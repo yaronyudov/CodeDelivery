@@ -1,4 +1,5 @@
 """Review Supervisor — routes codebase to specialists and aggregates findings."""
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,9 @@ def review_supervisor_node(state: PipelineState, model: str) -> tuple[dict, Usag
         f"Review findings from all specialists:\n{findings_text}"
     )
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state)
+    )
 
     result = parse_llm_json(text, SupervisorOutput, context="review_supervisor")
     return {"verdict": result.verdict}, usage

@@ -1,8 +1,9 @@
 """Authentication: bcrypt password verification + JWT cookie management."""
+
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from jose import JWTError, jwt
@@ -16,8 +17,7 @@ from ui.backend.models import LoginRequest, TokenData
 _SECRET_KEY = os.environ.get("SECRET_KEY")
 if not _SECRET_KEY:
     raise RuntimeError(
-        "SECRET_KEY environment variable is not set. "
-        "Generate one with: openssl rand -hex 32"
+        "SECRET_KEY environment variable is not set. Generate one with: openssl rand -hex 32"
     )
 
 _ALGORITHM = "HS256"
@@ -44,6 +44,7 @@ COOKIE_NAME = "access_token"
 
 # ── Password helpers ──────────────────────────────────────────────────────────
 
+
 def verify_password(plain: str, hashed: str) -> bool:
     return _pwd_context.verify(plain, hashed)
 
@@ -54,8 +55,9 @@ def hash_password(plain: str) -> str:
 
 # ── JWT helpers ───────────────────────────────────────────────────────────────
 
+
 def create_access_token(user_id: int, username: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=_ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=_ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": str(user_id), "username": username, "exp": expire}
     return jwt.encode(payload, _SECRET_KEY, algorithm=_ALGORITHM)
 
@@ -72,9 +74,9 @@ def _set_auth_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
-        httponly=True,    # no JS access → XSS-safe
-        secure=True,      # HTTPS only
-        samesite="strict", # CSRF-safe
+        httponly=True,  # no JS access → XSS-safe
+        secure=True,  # HTTPS only
+        samesite="strict",  # CSRF-safe
         max_age=_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -82,14 +84,20 @@ def _set_auth_cookie(response: Response, token: str) -> None:
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+
 @router.post("/login")
 @_limiter.limit("5/15minute")
 async def login(request: Request, body: LoginRequest, response: Response):
     """Rate-limited login: 5 attempts per 15 min per real client IP."""
     from ui.backend.dependencies import get_db
+
     db = get_db()
     user = db.get_user_by_username(body.username)
-    if user is None or not user.get("is_active") or not verify_password(body.password, user["password_hash"]):
+    if (
+        user is None
+        or not user.get("is_active")
+        or not verify_password(body.password, user["password_hash"])
+    ):
         # Same error for missing user vs wrong password (no enumeration)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
@@ -107,5 +115,6 @@ async def logout(response: Response):
 @router.get("/me")
 async def me(request: Request):
     from ui.backend.dependencies import get_current_user
+
     user = await get_current_user(request)
     return {"username": user.username, "user_id": user.user_id}

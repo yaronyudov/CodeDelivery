@@ -1,4 +1,5 @@
 """Coder agent — writes application code from the plan."""
+
 from __future__ import annotations
 
 import json
@@ -23,18 +24,28 @@ def coder_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]:
     plan_text = json.dumps(state["plan"], indent=2)
     debug_context = ""
     if state.get("debug_attempts", 0) > 0:
-        debug_context = f"\n\nPrevious test failures occurred. debug_attempts={state['debug_attempts']}. Fix the issues."
+        debug_context = (
+            f"\n\nPrevious test failures occurred."
+            f" debug_attempts={state['debug_attempts']}. Fix the issues."
+        )
 
     user_msg = f"Build plan:\n{plan_text}{debug_context}"
 
     # RAG use case 3: surface reusable code patterns from past runs.
     if db is not None:
         from src.rag.recipes import retrieve_code_patterns
+
         patterns = retrieve_code_patterns(state.get("plan", {}), db, k=3)
         if patterns:
             user_msg += f"\n\n{patterns}"
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, max_tokens=8192, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model,
+        inject_skills(_SYSTEM, state),
+        user_msg,
+        max_tokens=8192,
+        **model_kwargs_from_state(state),
+    )
 
     files = parse_llm_json_list(text, FileOutput, context="coder")
     artifacts: list[Artifact] = []

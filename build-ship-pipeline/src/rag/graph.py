@@ -21,6 +21,7 @@ Why graph RAG?
 - Particularly useful for the coder/reviewer agents which need to understand
   how pieces of the codebase connect.
 """
+
 from __future__ import annotations
 
 import json
@@ -46,7 +47,9 @@ Respond with a JSON object:
     {"name": "...", "type": "file|function|class|service|concept|technology", "description": "..."}
   ],
   "relations": [
-    {"source": "<entity name>", "relation": "imports|calls|inherits|uses|defines|depends_on", "target": "<entity name>"}
+    {"source": "<entity name>",
+     "relation": "imports|calls|inherits|uses|defines|depends_on",
+     "target": "<entity name>"}
   ]
 }
 
@@ -61,6 +64,7 @@ Respond ONLY with the JSON array."""
 
 def _llm_call(system: str, user: str, model: str, api_key: str | None, api_base: str | None) -> str:
     import litellm
+
     litellm.suppress_debug_info = True
     kwargs: dict[str, Any] = {
         "model": model,
@@ -91,6 +95,7 @@ def _parse_json(text: str) -> Any:
 # In-memory graph
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class _Entity:
     name: str
@@ -115,9 +120,9 @@ class InMemoryGraphRetriever(Retriever):
         self.api_key = api_key
         self.api_base = api_base
         self.max_hops = max_hops
-        self._entities: dict[str, _Entity] = {}         # name → Entity
+        self._entities: dict[str, _Entity] = {}  # name → Entity
         self._adj: dict[str, list[str]] = defaultdict(list)  # name → [neighbour names]
-        self._docs: dict[str, Document] = {}            # id → Document
+        self._docs: dict[str, Document] = {}  # id → Document
 
     def add_documents(self, docs: list[Document]) -> None:
         for doc in docs:
@@ -125,7 +130,9 @@ class InMemoryGraphRetriever(Retriever):
             self._index_doc(doc)
 
     def _index_doc(self, doc: Document) -> None:
-        raw = _llm_call(_EXTRACT_SYSTEM, doc.content[:2000], self.model, self.api_key, self.api_base)
+        raw = _llm_call(
+            _EXTRACT_SYSTEM, doc.content[:2000], self.model, self.api_key, self.api_base
+        )
         data = _parse_json(raw)
         if not data:
             return
@@ -134,8 +141,11 @@ class InMemoryGraphRetriever(Retriever):
             if not name:
                 continue
             if name not in self._entities:
-                self._entities[name] = _Entity(name=name, type=ent.get("type", "concept"),
-                                                description=ent.get("description", ""))
+                self._entities[name] = _Entity(
+                    name=name,
+                    type=ent.get("type", "concept"),
+                    description=ent.get("description", ""),
+                )
             self._entities[name].doc_ids.add(f"{doc.id}::{doc.chunk_index}")
         for rel in data.get("relations", []):
             src = rel.get("source", "").strip()
@@ -199,6 +209,7 @@ class InMemoryGraphRetriever(Retriever):
 # DB-backed graph (rag_entities + rag_relations tables)
 # ---------------------------------------------------------------------------
 
+
 class PostgresGraphRetriever(Retriever):
     """Graph RAG backed by rag_entities + rag_relations DB tables."""
 
@@ -227,7 +238,9 @@ class PostgresGraphRetriever(Retriever):
             self._index_doc(doc)
 
     def _index_doc(self, doc: Document) -> None:
-        raw = _llm_call(_EXTRACT_SYSTEM, doc.content[:2000], self.model, self.api_key, self.api_base)
+        raw = _llm_call(
+            _EXTRACT_SYSTEM, doc.content[:2000], self.model, self.api_key, self.api_base
+        )
         data = _parse_json(raw)
         if not data:
             return
@@ -243,8 +256,14 @@ class PostgresGraphRetriever(Retriever):
                        attributes)
                        VALUES (%s, %s, %s, %s, %s, %s)
                        ON CONFLICT (corpus, name) DO NOTHING RETURNING id""",
-                    (self._corpus, self._run_id, name, ent.get("type", "concept"),
-                     ent.get("description", ""), json.dumps({"doc_id": doc.id})),
+                    (
+                        self._corpus,
+                        self._run_id,
+                        name,
+                        ent.get("type", "concept"),
+                        ent.get("description", ""),
+                        json.dumps({"doc_id": doc.id}),
+                    ),
                 ).fetchone()
                 if row:
                     entity_ids[name] = row[0]
@@ -299,7 +318,8 @@ class PostgresGraphRetriever(Retriever):
             reachable_ids = [r[0] for r in reachable_rows]
 
             attr_rows = conn.execute(
-                f"SELECT attributes FROM rag_entities WHERE id IN ({','.join(['%s']*len(reachable_ids))})",
+                "SELECT attributes FROM rag_entities"
+                f" WHERE id IN ({','.join(['%s'] * len(reachable_ids))})",
                 reachable_ids,
             ).fetchall()
 
@@ -315,10 +335,12 @@ class PostgresGraphRetriever(Retriever):
             return []
 
         from psycopg.rows import dict_row
+
         with self._pool.connection() as conn:
             placeholders = ",".join(["%s"] * len(top_doc_ids))
             rows = conn.execute(
-                f"SELECT doc_id, chunk_index, content, metadata FROM rag_documents WHERE doc_id IN ({placeholders}) LIMIT %s",
+                "SELECT doc_id, chunk_index, content, metadata FROM rag_documents"
+                f" WHERE doc_id IN ({placeholders}) LIMIT %s",
                 top_doc_ids + [k],
                 row_factory=dict_row,
             ).fetchall()
@@ -327,8 +349,10 @@ class PostgresGraphRetriever(Retriever):
         return [
             RetrievalResult(
                 document=Document(
-                    id=r["doc_id"], content=r["content"],
-                    metadata=r["metadata"] or {}, chunk_index=r["chunk_index"],
+                    id=r["doc_id"],
+                    content=r["content"],
+                    metadata=r["metadata"] or {},
+                    chunk_index=r["chunk_index"],
                 ),
                 score=doc_id_hits.get(r["doc_id"], 0) / max_hits,
                 retriever=self.name,

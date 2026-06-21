@@ -19,6 +19,7 @@ The ``embedding`` column must be enabled in ``rag_documents`` first:
     ALTER TABLE rag_documents ADD COLUMN embedding VECTOR(1536);
     CREATE INDEX ON rag_documents USING ivfflat (embedding vector_cosine_ops);
 """
+
 from __future__ import annotations
 
 import math
@@ -30,8 +31,11 @@ from src.rag.base import Document, RetrievalResult, Retriever
 _DEFAULT_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
 
-def _embed(texts: list[str], model: str, api_key: str | None, api_base: str | None) -> list[list[float]]:
+def _embed(
+    texts: list[str], model: str, api_key: str | None, api_base: str | None
+) -> list[list[float]]:
     import litellm
+
     litellm.suppress_debug_info = True
     kwargs: dict[str, Any] = {"model": model, "input": texts}
     if api_key:
@@ -54,6 +58,7 @@ def _cosine(a: list[float], b: list[float]) -> float:
 # ---------------------------------------------------------------------------
 # In-memory dense retriever
 # ---------------------------------------------------------------------------
+
 
 class InMemoryDenseRetriever(Retriever):
     """Embed documents and retrieve by cosine similarity (no DB required)."""
@@ -84,9 +89,7 @@ class InMemoryDenseRetriever(Retriever):
         if not self._docs:
             return []
         q_vec = _embed([query], self.model, self.api_key, self.api_base)[0]
-        scored = [
-            (i, _cosine(q_vec, emb)) for i, emb in enumerate(self._embeddings)
-        ]
+        scored = [(i, _cosine(q_vec, emb)) for i, emb in enumerate(self._embeddings)]
         scored.sort(key=lambda x: x[1], reverse=True)
         return [
             RetrievalResult(document=self._docs[i], score=max(0.0, s), retriever=self.name)
@@ -101,6 +104,7 @@ class InMemoryDenseRetriever(Retriever):
 # ---------------------------------------------------------------------------
 # pgvector dense retriever
 # ---------------------------------------------------------------------------
+
 
 class PgVectorRetriever(Retriever):
     """Store embeddings in Postgres rag_documents.embedding (pgvector).
@@ -129,6 +133,7 @@ class PgVectorRetriever(Retriever):
         if not docs:
             return
         import json
+
         texts = [d.content for d in docs]
         vecs = _embed(texts, self.model, self.api_key, self.api_base)
         corpus = self._corpus or "custom"
@@ -163,13 +168,16 @@ class PgVectorRetriever(Retriever):
         """
         params = [str(q_vec)] + ([self._corpus] if self._corpus else []) + [str(q_vec), k]
         from psycopg.rows import dict_row
+
         with self._pool.connection() as conn:
             rows = conn.execute(sql, params, row_factory=dict_row).fetchall()
         return [
             RetrievalResult(
                 document=Document(
-                    id=r["doc_id"], content=r["content"],
-                    metadata=r["metadata"] or {}, chunk_index=r["chunk_index"],
+                    id=r["doc_id"],
+                    content=r["content"],
+                    metadata=r["metadata"] or {},
+                    chunk_index=r["chunk_index"],
                 ),
                 score=max(0.0, float(r["similarity"])),
                 retriever=self.name,

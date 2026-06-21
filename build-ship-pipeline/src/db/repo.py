@@ -3,15 +3,13 @@
 Uses psycopg3 with a connection pool.  All methods are synchronous;
 the LangGraph runner is single-threaded per node.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import uuid
-from datetime import datetime
-from typing import Any
 
-import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -26,6 +24,7 @@ def _span(name: str):
     if _tracer is not None:
         return _tracer.start_as_current_span(f"db.{name}")
     from contextlib import nullcontext
+
     return nullcontext()
 
 
@@ -58,7 +57,8 @@ class PipelineRepo:
     def recall_memory(self, kind: str, key: str) -> dict | None:
         with self._pool.connection() as conn:
             row = conn.execute(
-                "SELECT value FROM memory WHERE kind=%s AND key=%s ORDER BY created_at DESC LIMIT 1",
+                "SELECT value FROM memory"
+                " WHERE kind=%s AND key=%s ORDER BY created_at DESC LIMIT 1",
                 (kind, key),
             ).fetchone()
             return row[0] if row else None
@@ -69,7 +69,8 @@ class PipelineRepo:
             if kinds:
                 placeholders = ",".join(["%s"] * len(kinds))
                 rows = conn.execute(
-                    f"SELECT kind, key, value FROM memory WHERE kind IN ({placeholders}) ORDER BY created_at DESC",
+                    "SELECT kind, key, value FROM memory"
+                    f" WHERE kind IN ({placeholders}) ORDER BY created_at DESC",
                     kinds,
                     row_factory=dict_row,
                 ).fetchall()
@@ -83,9 +84,7 @@ class PipelineRepo:
     # ------------------------------------------------------------------
     # ROLE 2: Artifact cache
     # ------------------------------------------------------------------
-    def save_artifact(
-        self, run_id: str, kind: str, path: str, version: int, content: str
-    ) -> str:
+    def save_artifact(self, run_id: str, kind: str, path: str, version: int, content: str) -> str:
         """Persists content and returns a content_ref UUID."""
         ref = str(uuid.uuid4())
         with _span("save_artifact"):
@@ -108,7 +107,8 @@ class PipelineRepo:
     def list_artifacts(self, run_id: str) -> list[dict]:
         with self._pool.connection() as conn:
             rows = conn.execute(
-                "SELECT content_ref, kind, path, version FROM artifacts WHERE run_id=%s ORDER BY created_at",
+                "SELECT content_ref, kind, path, version FROM artifacts"
+                " WHERE run_id=%s ORDER BY created_at",
                 (run_id,),
                 row_factory=dict_row,
             ).fetchall()
@@ -148,9 +148,7 @@ class PipelineRepo:
     # ------------------------------------------------------------------
     # ROLE 4: Audit log
     # ------------------------------------------------------------------
-    def append_audit(
-        self, run_id: str, step: int, agent: str, action: str, decision: dict
-    ) -> None:
+    def append_audit(self, run_id: str, step: int, agent: str, action: str, decision: dict) -> None:
         with _span("append_audit"):
             with self._pool.connection() as conn:
                 conn.execute(
@@ -162,7 +160,8 @@ class PipelineRepo:
     def get_audit_log(self, run_id: str) -> list[dict]:
         with self._pool.connection() as conn:
             rows = conn.execute(
-                "SELECT step, agent, action, decision, ts FROM audit_log WHERE run_id=%s ORDER BY ts",
+                "SELECT step, agent, action, decision, ts FROM audit_log"
+                " WHERE run_id=%s ORDER BY ts",
                 (run_id,),
                 row_factory=dict_row,
             ).fetchall()
@@ -297,7 +296,9 @@ class PipelineRepo:
     def list_skills(self) -> list[dict]:
         with self._pool.connection() as conn:
             rows = conn.execute(
-                "SELECT id, name, description, kind, target_agents, prompt_addon, is_default, is_system, created_at FROM skills ORDER BY kind, name",
+                "SELECT id, name, description, kind, target_agents,"
+                " prompt_addon, is_default, is_system, created_at"
+                " FROM skills ORDER BY kind, name",
                 row_factory=dict_row,
             ).fetchall()
             return [dict(r) for r in rows]
@@ -305,7 +306,9 @@ class PipelineRepo:
     def get_skill(self, skill_id: str) -> dict | None:
         with self._pool.connection() as conn:
             row = conn.execute(
-                "SELECT id, name, description, kind, target_agents, prompt_addon, is_default, is_system, created_at FROM skills WHERE id=%s",
+                "SELECT id, name, description, kind, target_agents,"
+                " prompt_addon, is_default, is_system, created_at"
+                " FROM skills WHERE id=%s",
                 (skill_id,),
                 row_factory=dict_row,
             ).fetchone()
@@ -314,12 +317,17 @@ class PipelineRepo:
     def create_skill(self, skill: dict) -> None:
         with self._pool.connection() as conn:
             conn.execute(
-                """INSERT INTO skills (id, name, description, kind, target_agents, prompt_addon, is_default, is_system)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                "INSERT INTO skills"
+                " (id, name, description, kind, target_agents, prompt_addon, is_default, is_system)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                 (
-                    skill["id"], skill["name"], skill.get("description", ""),
-                    skill["kind"], skill.get("target_agents", []),
-                    skill.get("prompt_addon"), skill.get("is_default", False),
+                    skill["id"],
+                    skill["name"],
+                    skill.get("description", ""),
+                    skill["kind"],
+                    skill.get("target_agents", []),
+                    skill.get("prompt_addon"),
+                    skill.get("is_default", False),
                     skill.get("is_system", False),
                 ),
             )
@@ -339,13 +347,16 @@ class PipelineRepo:
 
     def delete_skill(self, skill_id: str) -> bool:
         with self._pool.connection() as conn:
-            cur = conn.execute("DELETE FROM skills WHERE id=%s AND is_system=false RETURNING id", (skill_id,))
+            cur = conn.execute(
+                "DELETE FROM skills WHERE id=%s AND is_system=false RETURNING id", (skill_id,)
+            )
             return cur.fetchone() is not None
 
     def toggle_skill_default(self, skill_id: str) -> dict | None:
         with self._pool.connection() as conn:
             row = conn.execute(
-                "UPDATE skills SET is_default = NOT is_default WHERE id=%s RETURNING id, is_default",
+                "UPDATE skills SET is_default = NOT is_default"
+                " WHERE id=%s RETURNING id, is_default",
                 (skill_id,),
                 row_factory=dict_row,
             ).fetchone()
@@ -354,7 +365,9 @@ class PipelineRepo:
     def get_default_skills(self) -> list[dict]:
         with self._pool.connection() as conn:
             rows = conn.execute(
-                "SELECT id, name, description, kind, target_agents, prompt_addon, is_default, is_system, created_at FROM skills WHERE is_default=true",
+                "SELECT id, name, description, kind, target_agents,"
+                " prompt_addon, is_default, is_system, created_at"
+                " FROM skills WHERE is_default=true",
                 row_factory=dict_row,
             ).fetchall()
             return [dict(r) for r in rows]

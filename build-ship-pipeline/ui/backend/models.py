@@ -1,4 +1,5 @@
 """Pydantic schemas for the UI backend API."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -21,16 +22,18 @@ class TokenData(BaseModel):
 
 class ModelConfig(BaseModel):
     """Model selection and endpoint configuration."""
+
     provider: Literal["anthropic", "openai", "groq", "ollama", "custom"] = "anthropic"
     model: str = "anthropic/claude-sonnet-4-6"
-    api_base: str | None = None   # for Ollama / Azure / custom
-    api_key: str | None = None    # override (if not set, uses env var)
+    api_base: str | None = None  # for Ollama / Azure / custom
+    api_key: str | None = None  # override (if not set, uses env var)
 
 
 class RunSkillOverride(BaseModel):
     """Per-agent skill additions/removals for a single run."""
-    add: list[str] = []      # skill IDs to add for this agent
-    remove: list[str] = []   # skill IDs to remove for this agent
+
+    add: list[str] = []  # skill IDs to add for this agent
+    remove: list[str] = []  # skill IDs to remove for this agent
 
 
 class StartRunRequest(BaseModel):
@@ -64,6 +67,7 @@ class ApproveRequest(BaseModel):
 
 # ── Skill schemas ──────────────────────────────────────────────────────────────
 
+
 class SkillCreate(BaseModel):
     id: str = Field(..., pattern=r"^[a-z0-9-]+$", max_length=64, description="URL-safe slug")
     name: str = Field(..., min_length=1, max_length=120)
@@ -77,7 +81,9 @@ class SkillCreate(BaseModel):
     @classmethod
     def _no_essential_toggle(cls, v: list[str], info) -> list[str]:
         if info.data.get("kind") == "agent_toggle" and _ESSENTIAL_AGENTS.intersection(v):
-            raise ValueError(f"agent_toggle skills cannot disable essential agents: {sorted(_ESSENTIAL_AGENTS)}")
+            raise ValueError(
+                f"agent_toggle skills cannot disable essential agents: {sorted(_ESSENTIAL_AGENTS)}"
+            )
         return v
 
 

@@ -9,6 +9,7 @@ Wraps any Retriever so that every retrieve()/add_documents() call:
 The factory (src.rag.create_retriever) applies this wrapper by default so
 all strategies are observable and guarded without per-retriever code.
 """
+
 from __future__ import annotations
 
 import time
@@ -30,6 +31,7 @@ class InstrumentedRetriever(Retriever):
         safe_docs = [d for d in docs if len(d.content) <= MAX_DOC_CHARS]
         try:
             from src.observability.tracing import rag_documents_indexed, tracer
+
             with tracer.start_as_current_span("rag.index") as span:
                 span.set_attribute("retriever", self._inner.name)
                 span.set_attribute("documents", len(safe_docs))
@@ -47,6 +49,7 @@ class InstrumentedRetriever(Retriever):
         t0 = time.perf_counter()
         try:
             from src.observability.tracing import record_rag_retrieval, tracer
+
             with tracer.start_as_current_span("rag.retrieve") as span:
                 span.set_attribute("retriever", self._inner.name)
                 span.set_attribute("k", k)

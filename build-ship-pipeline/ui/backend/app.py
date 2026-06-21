@@ -1,4 +1,5 @@
 """FastAPI application factory."""
+
 from __future__ import annotations
 
 import asyncio
@@ -51,12 +52,14 @@ def create_app() -> FastAPI:
         set_main_loop(loop)
         # Also wire up the approval gate so it can wait on the same loop
         from src.nodes.approval import set_main_loop as approval_set_loop
+
         approval_set_loop(loop)
 
     @app.get("/health", include_in_schema=False)
     async def health() -> JSONResponse:
         """Liveness + readiness probe.  Checks DB connectivity."""
         from ui.backend.dependencies import get_db
+
         db = next(get_db())
         db_ok = False
         try:
@@ -66,7 +69,9 @@ def create_app() -> FastAPI:
         except Exception:
             pass
         status = 200 if db_ok else 503
-        return JSONResponse({"status": "ok" if db_ok else "degraded", "db": db_ok}, status_code=status)
+        return JSONResponse(
+            {"status": "ok" if db_ok else "degraded", "db": db_ok}, status_code=status
+        )
 
     app.include_router(auth.router, prefix="/api/auth")
     app.include_router(runs.router, prefix="/api/runs")

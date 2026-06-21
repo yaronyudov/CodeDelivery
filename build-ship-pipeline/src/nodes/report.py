@@ -1,4 +1,5 @@
 """Report node — writes the final pipeline report on success."""
+
 from __future__ import annotations
 
 import json
@@ -25,14 +26,9 @@ def report_node(state: PipelineState, db=None) -> dict:
         "phase_completed": state.get("phase"),
         "plan_summary": state.get("plan", {}).get("summary", "N/A"),
         "tech_stack": state.get("tech_stack", []),
-        "artifacts": [
-            {"path": a["path"], "kind": a["kind"]}
-            for a in state.get("artifacts", [])
-        ],
+        "artifacts": [{"path": a["path"], "kind": a["kind"]} for a in state.get("artifacts", [])],
         "test_results": state.get("test_results", {}),
-        "findings_summary": {
-            sev: len(items) for sev, items in findings_by_severity.items()
-        },
+        "findings_summary": {sev: len(items) for sev, items in findings_by_severity.items()},
         "findings": state.get("findings", []),
         "budget_summary": {
             "tokens_used": budget.get("tokens_used", 0),
@@ -47,7 +43,7 @@ def report_node(state: PipelineState, db=None) -> dict:
         "timestamp": datetime.now(UTC).isoformat(),
     }
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("PIPELINE COMPLETE")
     print(json.dumps(report, indent=2))
     print("=" * 60)
@@ -55,6 +51,7 @@ def report_node(state: PipelineState, db=None) -> dict:
     # RAG use case 5: persist this run's plan + lessons for future runs to learn from.
     if db is not None:
         from src.rag.recipes import persist_run_memory
+
         persist_run_memory(state, db)
 
     return {"phase": "done"}

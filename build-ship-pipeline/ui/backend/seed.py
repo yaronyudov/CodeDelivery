@@ -5,6 +5,7 @@ Usage:
 
 Idempotent — safe to run multiple times.
 """
+
 from __future__ import annotations
 
 import os
@@ -18,8 +19,8 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
-from src.db.repo import PipelineRepo
-from ui.backend.auth import hash_password
+from src.db.repo import PipelineRepo  # noqa: E402
+from ui.backend.auth import hash_password  # noqa: E402
 
 _SYSTEM_SKILLS = [
     {

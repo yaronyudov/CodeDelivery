@@ -11,6 +11,7 @@ PostgresBM25Retriever
     rag_documents(content).  Scales to millions of rows without loading anything
     into memory.  Requires a live DB connection pool.
 """
+
 from __future__ import annotations
 
 import math
@@ -33,6 +34,7 @@ def _tokenize(text: str) -> list[str]:
 # In-memory BM25
 # ---------------------------------------------------------------------------
 
+
 class InMemoryBM25Retriever(Retriever):
     """Okapi BM25 over an in-memory corpus.  Thread-safe for reads after indexing."""
 
@@ -42,8 +44,8 @@ class InMemoryBM25Retriever(Retriever):
         self.k1 = k1
         self.b = b
         self._docs: list[Document] = []
-        self._tf: list[dict[str, int]] = []     # term frequency per doc
-        self._df: dict[str, int] = {}           # document frequency per term
+        self._tf: list[dict[str, int]] = []  # term frequency per doc
+        self._df: dict[str, int] = {}  # document frequency per term
         self._avgdl: float = 0.0
 
     def add_documents(self, docs: list[Document]) -> None:
@@ -72,8 +74,10 @@ class InMemoryBM25Retriever(Retriever):
                 df = self._df.get(term, 0)
                 idf = math.log((N - df + 0.5) / (df + 0.5) + 1)
                 tf_val = tf[term]
-                score += idf * (tf_val * (self.k1 + 1)) / (
-                    tf_val + self.k1 * (1 - self.b + self.b * doc_len / self._avgdl)
+                score += (
+                    idf
+                    * (tf_val * (self.k1 + 1))
+                    / (tf_val + self.k1 * (1 - self.b + self.b * doc_len / self._avgdl))
                 )
             scores.append(score)
 
@@ -100,6 +104,7 @@ class InMemoryBM25Retriever(Retriever):
 # Postgres FTS BM25 (ts_rank_cd)
 # ---------------------------------------------------------------------------
 
+
 class PostgresBM25Retriever(Retriever):
     """BM25-equivalent retrieval via Postgres GIN full-text search.
 
@@ -118,6 +123,7 @@ class PostgresBM25Retriever(Retriever):
 
     def add_documents(self, docs: list[Document]) -> None:
         import json
+
         rows = [
             (doc.id, d_idx, doc.content, json.dumps(doc.metadata), self._corpus or "custom")
             for d_idx, doc in enumerate(docs)
@@ -150,6 +156,7 @@ class PostgresBM25Retriever(Retriever):
         params = [query, query] + ([self._corpus] if self._corpus else []) + [k]
 
         from psycopg.rows import dict_row
+
         with self._pool.connection() as conn:
             rows = conn.execute(sql, params, row_factory=dict_row).fetchall()
 

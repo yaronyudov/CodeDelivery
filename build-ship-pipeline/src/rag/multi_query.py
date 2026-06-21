@@ -15,6 +15,7 @@ When to use
 - When a single query misses related concepts (e.g. "security" vs "auth" vs "JWT").
 - As a pre-rerank expansion step before the LLM reranker.
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,6 +44,7 @@ def _expand_query(
     import json
 
     import litellm
+
     litellm.suppress_debug_info = True
     system = _EXPAND_SYSTEM.format(n=n)
     kwargs: dict[str, Any] = {
@@ -122,10 +124,7 @@ class MultiQueryRetriever(Retriever):
 
         n_queries = len(all_queries)
         # Combined score: vote fraction * best score
-        combined = {
-            key: (votes[key] / n_queries) * best_score[key]
-            for key in votes
-        }
+        combined = {key: (votes[key] / n_queries) * best_score[key] for key in votes}
         sorted_keys = sorted(combined, key=lambda dk: combined[dk], reverse=True)[:k]
         max_score = combined[sorted_keys[0]] if sorted_keys else 1.0
 

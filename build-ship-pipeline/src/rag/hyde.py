@@ -16,6 +16,7 @@ HyDE improves recall especially for:
 - Domain-specific queries where the exact terminology is in the corpus
 - Questions where the answer phrasing differs from the question phrasing
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,6 +38,7 @@ def _generate_hypothesis(
     api_base: str | None,
 ) -> str:
     import litellm
+
     litellm.suppress_debug_info = True
     kwargs: dict[str, Any] = {
         "model": model,

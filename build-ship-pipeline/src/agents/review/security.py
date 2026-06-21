@@ -1,4 +1,5 @@
 """Security Auditor — vulnerabilities, secrets, injection, dependency CVEs."""
+
 from __future__ import annotations
 
 import json
@@ -37,13 +38,16 @@ def security_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usag
     # RAG use case 4: recall known CVEs + codebase map for this run.
     if db is not None:
         from src.rag.recipes import retrieve_security_context
+
         sec_ctx = retrieve_security_context(
             state["feature_request"], db, state.get("run_id", ""), k=5
         )
         if sec_ctx:
             user_msg += f"\n\n{sec_ctx}"
 
-    text, usage = call_model(model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state))
+    text, usage = call_model(
+        model, inject_skills(_SYSTEM, state), user_msg, **model_kwargs_from_state(state)
+    )
 
     parsed = parse_llm_json_list(text, ReviewFinding, context="security")
     findings: list[Finding] = [

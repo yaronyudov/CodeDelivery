@@ -19,6 +19,7 @@ The reranker is also exposed as a Retriever subclass so it can wrap any base:
     reranker_retriever = LLMReranker(model=..., base=hybrid)
     results = reranker_retriever.retrieve(query, k=5)
 """
+
 from __future__ import annotations
 
 import json
@@ -50,6 +51,7 @@ def _score_one(
     api_base: str | None,
 ) -> float:
     import litellm
+
     litellm.suppress_debug_info = True
     user_msg = f"Query: {query}\n\nDocument excerpt:\n{content[:1000]}"
     kwargs: dict[str, Any] = {
@@ -100,7 +102,9 @@ class LLMReranker:
         rescored: list[RetrievalResult] = []
         for res in candidates:
             score = _score_one(query, res.document.content, self.model, self.api_key, self.api_base)
-            rescored.append(RetrievalResult(document=res.document, score=score, retriever="reranker"))
+            rescored.append(
+                RetrievalResult(document=res.document, score=score, retriever="reranker")
+            )
         rescored.sort(key=lambda r: r.score, reverse=True)
         return rescored[:k] if k else rescored
 

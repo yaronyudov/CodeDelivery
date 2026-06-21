@@ -7,6 +7,7 @@ parse_llm_json_list() instead of bare json.loads() so that:
   3. Parse failures are recorded in an OTel counter (never silently swallowed).
   4. A safe typed default is returned on failure so callers never crash.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,7 +38,10 @@ def _strip_markdown(text: str) -> str:
 def _record_parse_failure(context: str, reason: str) -> None:
     """Increment the parse-failure counter if OTel is available, then log."""
     try:
-        from src.observability.tracing import parse_failure_counter  # avoid circular import at module load
+        from src.observability.tracing import (
+            parse_failure_counter,  # avoid circular import at module load
+        )
+
         parse_failure_counter.add(1, {"agent": context, "reason": reason})
     except Exception:
         pass  # OTel not configured — still log

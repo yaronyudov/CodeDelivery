@@ -1,4 +1,5 @@
 """LangGraph state schema for the Build & Ship Pipeline."""
+
 from __future__ import annotations
 
 from operator import add
@@ -64,14 +65,23 @@ class PipelineState(TypedDict):
     model_config: dict  # {provider, model, api_base, api_key} — passed to call_model
 
     # Skill system — computed once at run start from DB defaults + session overrides
-    skill_context: dict   # {agent_name: combined prompt injection text}
+    skill_context: dict  # {agent_name: combined prompt injection text}
     enabled_agents: list  # agent names that should run (all agents minus toggles)
 
 
 _ALL_AGENTS = [
-    "planner", "coder", "docker", "observability", "tester",
-    "debugger", "reviewer", "review_supervisor", "security",
-    "perf", "style", "coverage",
+    "planner",
+    "coder",
+    "docker",
+    "observability",
+    "tester",
+    "debugger",
+    "reviewer",
+    "review_supervisor",
+    "security",
+    "perf",
+    "style",
+    "coverage",
 ]
 
 
