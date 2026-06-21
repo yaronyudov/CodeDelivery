@@ -63,6 +63,23 @@ class PipelineRepo:
             ).fetchone()
             return row[0] if row else None
 
+    def list_memory(self, kinds: list[str] | None = None) -> list[dict]:
+        """Return all memory rows, optionally filtered to specific kinds."""
+        with self._pool.connection() as conn:
+            if kinds:
+                placeholders = ",".join(["%s"] * len(kinds))
+                rows = conn.execute(
+                    f"SELECT kind, key, value FROM memory WHERE kind IN ({placeholders}) ORDER BY created_at DESC",
+                    kinds,
+                    row_factory=dict_row,
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT kind, key, value FROM memory ORDER BY created_at DESC",
+                    row_factory=dict_row,
+                ).fetchall()
+            return [dict(r) for r in rows]
+
     # ------------------------------------------------------------------
     # ROLE 2: Artifact cache
     # ------------------------------------------------------------------
@@ -117,6 +134,16 @@ class PipelineRepo:
                 (run_id, topic),
             ).fetchone()
             return row[0] if row else None
+
+    def list_knowledge(self, run_id: str) -> list[dict]:
+        """Return all knowledge entries for *run_id*."""
+        with self._pool.connection() as conn:
+            rows = conn.execute(
+                "SELECT topic, payload FROM knowledge WHERE run_id=%s ORDER BY updated_at DESC",
+                (run_id,),
+                row_factory=dict_row,
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     # ------------------------------------------------------------------
     # ROLE 4: Audit log
