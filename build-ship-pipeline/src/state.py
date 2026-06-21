@@ -58,8 +58,18 @@ class PipelineState(TypedDict):
     audit: Annotated[list[dict], add]
     halt_reason: str | None
 
+    # UI additions
+    require_approval: bool  # pause between planner and coder for human review
+    approval_status: Literal["pending", "approved", "rejected"] | None
+    model_config: dict  # {provider, model, api_base, api_key} — passed to call_model
 
-def initial_state(run_id: str, feature_request: str) -> PipelineState:
+
+def initial_state(
+    run_id: str,
+    feature_request: str,
+    require_approval: bool = False,
+    model_config: dict | None = None,
+) -> PipelineState:
     """Build the starting state for a new pipeline run."""
     return PipelineState(
         run_id=run_id,
@@ -84,4 +94,7 @@ def initial_state(run_id: str, feature_request: str) -> PipelineState:
         ),
         audit=[],
         halt_reason=None,
+        require_approval=require_approval,
+        approval_status=None,
+        model_config=model_config or {},
     )

@@ -66,3 +66,27 @@ CREATE TABLE IF NOT EXISTS budget_ledger (
 );
 
 CREATE INDEX IF NOT EXISTS budget_ledger_run_id ON budget_ledger (run_id);
+
+-- ROLE 6: auth — pre-seeded users, no self-registration ----------------------
+CREATE TABLE IF NOT EXISTS users (
+    id            BIGSERIAL   PRIMARY KEY,
+    username      TEXT        NOT NULL UNIQUE,
+    password_hash TEXT        NOT NULL,   -- bcrypt cost=12, never plaintext
+    is_active     BOOLEAN     NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ROLE 7: run history — one row per pipeline execution -----------------------
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+    run_id           TEXT        PRIMARY KEY,
+    user_id          BIGINT      NOT NULL REFERENCES users(id),
+    feature_request  TEXT        NOT NULL,
+    status           TEXT        NOT NULL DEFAULT 'running',  -- running|done|halted|stopped
+    model_config     JSONB,
+    require_approval BOOLEAN     NOT NULL DEFAULT false,
+    verdict          TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    finished_at      TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS pipeline_runs_user ON pipeline_runs (user_id, created_at DESC);

@@ -174,5 +174,78 @@ class PipelineRepo:
             ).fetchone()
             return dict(row) if row else {}
 
+    # ------------------------------------------------------------------
+    # ROLE 6: User auth
+    # ------------------------------------------------------------------
+    def get_user_by_username(self, username: str) -> dict | None:
+        with self._pool.connection() as conn:
+            row = conn.execute(
+                "SELECT id, username, password_hash, is_active FROM users WHERE username=%s",
+                (username,),
+                row_factory=dict_row,
+            ).fetchone()
+            return dict(row) if row else None
+
+    def create_user(self, username: str, password_hash: str) -> int:
+        with self._pool.connection() as conn:
+            row = conn.execute(
+                "INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING id",
+                (username, password_hash),
+            ).fetchone()
+            return row[0]  # type: ignore[index]
+
+    # ------------------------------------------------------------------
+    # ROLE 7: Run history
+    # ------------------------------------------------------------------
+    def create_run(
+        self,
+        run_id: str,
+        user_id: int,
+        feature_request: str,
+        model_config: dict,
+        require_approval: bool,
+    ) -> None:
+        with self._pool.connection() as conn:
+            conn.execute(
+                """INSERT INTO pipeline_runs
+                   (run_id, user_id, feature_request, model_config, require_approval)
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (run_id, user_id, feature_request, json.dumps(model_config), require_approval),
+            )
+
+    def finish_run(self, run_id: str, status: str, verdict: str | None = None) -> None:
+        with self._pool.connection() as conn:
+            conn.execute(
+                """UPDATE pipeline_runs
+                   SET status=%s, verdict=%s, finished_at=now()
+                   WHERE run_id=%s""",
+                (status, verdict, run_id),
+            )
+
+    def list_runs(self, user_id: int, limit: int = 50) -> list[dict]:
+        with self._pool.connection() as conn:
+            rows = conn.execute(
+                """SELECT run_id, feature_request, status, verdict, require_approval,
+                          created_at, finished_at
+                   FROM pipeline_runs
+                   WHERE user_id=%s
+                   ORDER BY created_at DESC
+                   LIMIT %s""",
+                (user_id, limit),
+                row_factory=dict_row,
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_run(self, run_id: str, user_id: int) -> dict | None:
+        with self._pool.connection() as conn:
+            row = conn.execute(
+                """SELECT run_id, feature_request, status, verdict, model_config,
+                          require_approval, created_at, finished_at
+                   FROM pipeline_runs WHERE run_id=%s AND user_id=%s""",
+                (run_id, user_id),
+                row_factory=dict_row,
+            ).fetchone()
+            return dict(row) if row else None
+
     def close(self) -> None:
         self._pool.close()

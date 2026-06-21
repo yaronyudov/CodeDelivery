@@ -82,9 +82,52 @@ services:
       - loki
       - tempo
 
+  ui:
+    build:
+      context: ..
+      dockerfile: ui/Dockerfile
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: build_ship
+      POSTGRES_USER: pipeline
+      POSTGRES_PASSWORD: pipeline_secret
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      SEED_USERNAME: ${SEED_USERNAME:-admin}
+      SEED_PASSWORD: ${SEED_PASSWORD:-changeme}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../ui/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_certs:/etc/nginx/certs
+    depends_on:
+      - ui
+    restart: unless-stopped
+    entrypoint: >
+      sh -c "
+        if [ ! -f /etc/nginx/certs/server.crt ]; then
+          apk add --no-cache openssl &&
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048
+            -keyout /etc/nginx/certs/server.key
+            -out /etc/nginx/certs/server.crt
+            -subj '/CN=localhost';
+        fi &&
+        nginx -g 'daemon off;'
+      "
+
 volumes:
   postgres_data:
   prometheus_data:
   loki_data:
   tempo_data:
   grafana_data:
+  nginx_certs:
