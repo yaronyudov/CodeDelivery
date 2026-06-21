@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from src.state import PipelineState
 
 
-def report_node(state: PipelineState) -> dict:
+def report_node(state: PipelineState, db=None) -> dict:
     """Terminal node: produce the final report on successful completion."""
     budget = state.get("budget", {})
     cost_used = budget.get("cost_used_usd", 0.0)
@@ -44,12 +44,17 @@ def report_node(state: PipelineState) -> dict:
             "steps_limit": budget.get("steps_limit", 0),
         },
         "audit_entries": len(state.get("audit", [])),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
     print(f"\n{'='*60}")
     print("PIPELINE COMPLETE")
     print(json.dumps(report, indent=2))
     print("=" * 60)
+
+    # RAG use case 5: persist this run's plan + lessons for future runs to learn from.
+    if db is not None:
+        from src.rag.recipes import persist_run_memory
+        persist_run_memory(state, db)
 
     return {"phase": "done"}

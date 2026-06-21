@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-from typing import Literal
 
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
 from src.agents.outputs import SupervisorOutput

@@ -61,7 +61,9 @@ def build_graph(db: Any = None) -> Any:
     g = StateGraph(PipelineState)
 
     # ── Dev phase nodes ────────────────────────────────────────────────
-    g.add_node("planner", governed("planner", db)(planner_node))
+    g.add_node("planner", governed("planner", db)(
+        lambda s, m: planner_node(s, m, db)  # db enables RAG: similar past plans
+    ))
     g.add_node("approval_gate", approval_gate_node)  # zero-cost; no LLM
     g.add_node("coder", governed("coder", db)(
         lambda s, m: coder_node(s, m, db)
@@ -75,20 +77,24 @@ def build_graph(db: Any = None) -> Any:
     g.add_node("tester", governed("tester", db)(
         lambda s, m: tester_node(s, m, db)
     ))
-    g.add_node("debugger", governed("debugger", db)(debugger_node))
+    g.add_node("debugger", governed("debugger", db)(
+        lambda s, m: debugger_node(s, m, db)  # db enables RAG: past debug lessons
+    ))
     g.add_node("reviewer", governed("reviewer", db)(reviewer_node))
 
     # ── Review phase nodes ────────────────────────────────────────────
     g.add_node("review_supervisor", governed("review_sup", db)(review_supervisor_node))
     g.add_node("review_verdict", governed("review_sup", db)(review_supervisor_node))
-    g.add_node("security", governed("security", db)(security_node))
+    g.add_node("security", governed("security", db)(
+        lambda s, m: security_node(s, m, db)  # db enables RAG: known CVEs + codebase map
+    ))
     g.add_node("perf", governed("perf", db)(perf_node))
     g.add_node("style", governed("style", db)(style_node))
     g.add_node("coverage", governed("coverage", db)(coverage_node))
 
     # ── Terminal nodes ─────────────────────────────────────────────────
     g.add_node("halt", halt_node)
-    g.add_node("report", report_node)
+    g.add_node("report", lambda s: report_node(s, db))  # db enables RAG: persist memory
 
     # ── Dev phase edges ────────────────────────────────────────────────
     g.add_edge(START, "planner")

@@ -1,8 +1,6 @@
 """Planner agent — decomposes the feature request into a build plan."""
 from __future__ import annotations
 
-import json
-
 from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
 from src.agents.outputs import PlannerOutput
 from src.guardrails import parse_llm_json
@@ -20,8 +18,15 @@ Given a feature request, produce a structured build plan as JSON with these keys
 Respond ONLY with valid JSON, no prose."""
 
 
-def planner_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
+def planner_node(state: PipelineState, model: str, db=None) -> tuple[dict, Usage]:
     user_msg = f"Feature request:\n{state['feature_request']}"
+
+    # RAG use case 1: reuse decompositions from similar past runs.
+    if db is not None:
+        from src.rag.recipes import retrieve_similar_plans
+        past = retrieve_similar_plans(state["feature_request"], db, k=3)
+        if past:
+            user_msg += f"\n\n{past}"
 
     if state.get("findings"):
         critical = [f for f in state["findings"] if f["severity"] in ("critical", "major")]

@@ -73,6 +73,37 @@ ws_events_counter = _meter.create_counter(
     description="WebSocket events published to clients",
 )
 
+# RAG retrieval metrics
+rag_retrieval_counter = _meter.create_counter(
+    "rag_retrievals_total",
+    description="Number of RAG retrieve() calls per retriever",
+)
+rag_documents_indexed = _meter.create_counter(
+    "rag_documents_indexed",
+    description="Number of document chunks indexed per retriever",
+)
+rag_empty_results_counter = _meter.create_counter(
+    "rag_empty_results",
+    description="Retrieve calls that returned zero results per retriever",
+)
+rag_rejected_counter = _meter.create_counter(
+    "rag_rejected_inputs",
+    description="RAG inputs rejected by validation guards (by reason)",
+)
+rag_latency_histogram = _meter.create_histogram(
+    "rag_retrieval_seconds",
+    description="Wall-clock time per RAG retrieve() call",
+)
+
+
+def record_rag_retrieval(retriever: str, n_results: int, latency_s: float) -> None:
+    """Emit RAG retrieval metrics in one call (used by InstrumentedRetriever)."""
+    attrs = {"retriever": retriever}
+    rag_retrieval_counter.add(1, attrs)
+    rag_latency_histogram.record(latency_s, attrs)
+    if n_results == 0:
+        rag_empty_results_counter.add(1, attrs)
+
 
 def record_agent_usage(
     agent: str, tokens: int, cost_usd: float, latency_s: float

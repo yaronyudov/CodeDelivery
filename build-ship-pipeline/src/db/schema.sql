@@ -116,3 +116,58 @@ CREATE TABLE IF NOT EXISTS run_skill_overrides (
     action      TEXT NOT NULL CHECK (action IN ('add', 'remove')),
     PRIMARY KEY (run_id, agent_name, skill_id)
 );
+
+-- ROLE 10: RAG document store —————————————————————————————————————————————————
+-- Chunked text corpus used by all retrieval strategies.
+-- Populated by indexer.py at run start (artifacts) or on demand (memory, knowledge).
+CREATE EXTENSION IF NOT EXISTS pg_trgm;  -- trigram similarity (BM25 fallback)
+-- Uncomment next line after running: CREATE EXTENSION vector;
+-- CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS rag_documents (
+    id          BIGSERIAL   PRIMARY KEY,
+    corpus      TEXT        NOT NULL,       -- 'memory' | 'knowledge' | 'artifacts' | 'custom'
+    doc_id      TEXT        NOT NULL,       -- stable identifier for the source document
+    chunk_index INT         NOT NULL DEFAULT 0,
+    content     TEXT        NOT NULL,
+    metadata    JSONB       NOT NULL DEFAULT '{}',
+    -- embedding VECTOR(1536),             -- enable once pgvector extension is loaded
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS rag_documents_doc_chunk ON rag_documents (doc_id, chunk_index);
+CREATE INDEX IF NOT EXISTS rag_documents_corpus ON rag_documents (corpus);
+-- GIN index enables Postgres full-text search (free BM25-equivalent)
+CREATE INDEX IF NOT EXISTS rag_documents_fts
+    ON rag_documents USING GIN(to_tsvector('english', content));
+
+-- ROLE 11: RAG entity graph — nodes ——————————————————————————————————————————
+CREATE TABLE IF NOT EXISTS rag_entities (
+    id          BIGSERIAL   PRIMARY KEY,
+    corpus      TEXT        NOT NULL,
+    run_id      TEXT,                       -- null = global entity
+    name        TEXT        NOT NULL,
+    type        TEXT        NOT NULL,       -- 'file'|'function'|'class'|'service'|'concept'|'technology'
+    description TEXT        NOT NULL DEFAULT '',
+    attributes  JSONB       NOT NULL DEFAULT '{}',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS rag_entities_corpus_run ON rag_entities (corpus, run_id);
+CREATE INDEX IF NOT EXISTS rag_entities_name       ON rag_entities (name text_pattern_ops);
+-- Dedup key so graph indexing can upsert entities (ON CONFLICT target)
+CREATE UNIQUE INDEX IF NOT EXISTS rag_entities_corpus_name ON rag_entities (corpus, name);
+
+-- ROLE 12: RAG entity graph — edges ——————————————————————————————————————————
+CREATE TABLE IF NOT EXISTS rag_relations (
+    id          BIGSERIAL   PRIMARY KEY,
+    source_id   BIGINT      NOT NULL REFERENCES rag_entities(id) ON DELETE CASCADE,
+    target_id   BIGINT      NOT NULL REFERENCES rag_entities(id) ON DELETE CASCADE,
+    relation    TEXT        NOT NULL,       -- 'imports'|'calls'|'inherits'|'uses'|'defines'|'depends_on'
+    weight      FLOAT       NOT NULL DEFAULT 1.0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS rag_relations_source ON rag_relations (source_id);
+CREATE INDEX IF NOT EXISTS rag_relations_target ON rag_relations (target_id);
+
