@@ -55,3 +55,15 @@ SEED_USERNAME=admin SEED_PASSWORD=changeme python -m ui.backend.seed
 ```
 
 Skills can be activated, disabled, or overridden per run via the web UI or `/api/skills`.
+
+---
+
+## Keep docs in sync (required)
+
+When you change behaviour, update the docs it affects **in the same commit/PR**. Map of
+what to update lives in `agents/README.md` → *When you make a change*. In short: graph/state
+→ `agents/architecture.md`; rules → `agents/invariants.md`; conventions →
+`agents/coding-standards.md`; auth/API/DB → `agents/security.md`; commands/deps →
+`agents/common-tasks.md`; skills → `agents/skills/*.yml`. Always verify stated facts (test
+counts, budget ceilings, signatures) still match the code. A change that updates code but
+not its docs is incomplete.

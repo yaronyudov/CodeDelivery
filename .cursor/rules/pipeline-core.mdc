@@ -34,6 +34,13 @@ g.add_node("myagent", governed("myagent", db)(myagent_node))
 - `api_key` stripped from `model_config` before `db.create_run()`
 - CORS `allow_origins` from env var; never `"*"` with credentials
 
+## Keep docs in sync (required)
+
+When you change behaviour, update the docs it affects **in the same PR** — `agents/*.md`,
+`build-ship-pipeline/CLAUDE.md`, and any matching summary in the convention files.
+Verify stated facts (test counts, budget ceilings, signatures) still match the code.
+A change that updates code but not its docs is incomplete.
+
 ## Full context
 
 `agents/` folder contains: README, invariants, architecture, coding-standards, security, common-tasks, and 20 system skill YAML files.

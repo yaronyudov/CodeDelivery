@@ -127,3 +127,22 @@ All async functions must have explicit return type annotations.
 | React components | `PascalCase.tsx` | `StreamPanel.tsx` |
 | React hooks | `useCamelCase.ts` | `useWebSocket.ts` |
 | API modules | `snake_case.ts` | `runs.ts` |
+
+---
+
+## Documentation (part of every change)
+
+Docs are not a follow-up task — they ship with the code that changes them.
+
+- **Update docs in the same commit/PR as the code.** A behaviour change without the
+  matching doc update is an incomplete change.
+- **Verify facts against the code.** Numbers, commands, and signatures stated in docs
+  (test counts, budget ceilings, function signatures) must still match reality.
+- **Where to update** — see the mapping table in `agents/README.md` →
+  *When you make a change*. In short: graph/state → `architecture.md`; rules →
+  `invariants.md`; conventions → `coding-standards.md`; auth/API/DB → `security.md`;
+  commands/deps → `common-tasks.md`; skills → `agents/skills/*.yml`.
+- **Keep derived files in sync.** When a fact in `agents/` changes, update the summaries
+  that repeat it in `AGENTS.md`, `.cursor/rules/*.mdc`, `.windsurfrules`, `.clinerules`,
+  `.github/copilot-instructions.md`, and `build-ship-pipeline/CLAUDE.md`.
+- **Public API or env-var changes** must also update `README`/setup docs and `.env.example`.

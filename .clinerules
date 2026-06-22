@@ -24,6 +24,13 @@ Start with `agents/README.md`, then open the relevant file for your task.
 - API keys stripped before DB writes
 - CORS never `*` with credentials
 
+## Keep docs in sync (required)
+
+When you change behaviour, update the docs it affects in the same PR (agents/*.md,
+build-ship-pipeline/CLAUDE.md, and any matching summary here). Verify stated facts
+(test counts, budget ceilings, signatures) still match the code. A change that updates
+code but not its docs is incomplete. See agents/README.md → "When you make a change".
+
 ## Full context
 
 agents/README.md → agents/invariants.md → agents/architecture.md

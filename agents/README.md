@@ -3,6 +3,35 @@
 > **For any AI coding tool:** Read this folder before making changes to this repository.
 > All relevant context for AI agents lives here. Start with this file, then read the
 > specific files below based on your task.
+>
+> **When you make a change, you must update the docs it affects** — see
+> [When you make a change](#when-you-make-a-change-required) below.
+
+---
+
+## When you make a change (required)
+
+Documentation is part of the change, not a follow-up. Whenever you modify the code,
+update the relevant docs **in the same commit / PR** so this knowledge base never drifts:
+
+| If you change... | Update... |
+|------------------|-----------|
+| The agent graph, state fields, or reducers | `agents/architecture.md` and `build-ship-pipeline/CLAUDE.md` |
+| A critical rule, decorator, or threading model | `agents/invariants.md` |
+| Coding conventions (Python / TypeScript) | `agents/coding-standards.md` |
+| Auth, API, DB, or any security-sensitive code | `agents/security.md` |
+| Commands, scripts, or dependencies | `agents/common-tasks.md` |
+| Skill definitions | the YAML in `agents/skills/` (the seeder reads these files) |
+| Anything user-facing or architectural | the relevant tool convention files at the repo root |
+
+Rules:
+1. **Keep facts accurate.** If a doc states a number, command, or signature, verify it
+   still matches the code (e.g. test counts, budget ceilings, function signatures).
+2. **No silent drift.** A PR that changes behaviour but not the docs that describe it is
+   incomplete.
+3. **Docs and convention files are derived from this folder** — when you update a fact
+   here, update the matching summary in `AGENTS.md`, `.cursor/rules/*.mdc`,
+   `.windsurfrules`, `.clinerules`, and `.github/copilot-instructions.md` if they repeat it.
 
 ---
 

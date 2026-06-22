@@ -35,6 +35,15 @@ Agents collaborate to plan, code, test, and review features under a hard budget 
 - [ ] Parameterized SQL throughout
 - [ ] No hardcoded secrets or API keys
 - [ ] Security invariants from agents/security.md preserved
+- [ ] Docs updated for any behaviour change (agents/*.md, CLAUDE.md) — no stale facts
+
+## Keep docs in sync (required)
+
+A PR that changes behaviour must update the docs that describe it, in the same PR.
+Update the relevant `agents/*.md` file and `build-ship-pipeline/CLAUDE.md`, and verify
+stated facts (test counts, budget ceilings, signatures) still match the code. Flag any
+PR that changes behaviour without updating its docs. See `agents/README.md` →
+"When you make a change" for the full mapping.
 
 ## Key files
 
