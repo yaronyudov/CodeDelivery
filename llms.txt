@@ -28,4 +28,4 @@
 - build-ship-pipeline/src/: Pipeline core (LangGraph, agents, governance, DB, RAG)
 - build-ship-pipeline/ui/backend/: FastAPI REST + WebSocket API
 - build-ship-pipeline/ui/frontend/src/: React + Vite + Tailwind frontend
-- build-ship-pipeline/tests/unit/: Unit tests (16 tests, no live services required)
+- build-ship-pipeline/tests/unit/: Unit tests (71 tests, no live services required)

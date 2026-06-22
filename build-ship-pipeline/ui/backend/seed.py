@@ -21,22 +21,35 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 import yaml  # noqa: E402
+from pydantic import ValidationError  # noqa: E402
 
 from src.db.repo import PipelineRepo  # noqa: E402
 from ui.backend.auth import hash_password  # noqa: E402
+from ui.backend.models import SkillCreate  # noqa: E402
 
 _SKILLS_DIR = Path(__file__).parent.parent.parent / "agents" / "skills"
 
 
 def _load_skill_definitions() -> list[dict]:
-    skills = []
+    """Load and validate every skill definition in agents/skills/*.yml.
+
+    Each file is validated through the same ``SkillCreate`` schema the API uses,
+    so a malformed definition fails fast with a clear error instead of inserting
+    bad data. The server-controlled ``is_system`` flag (default ``True``) is
+    re-attached after validation, since the API model never accepts it from input.
+    """
+    skills: list[dict] = []
     for path in sorted(_SKILLS_DIR.glob("*.yml")):
-        with path.open() as f:
-            skill = yaml.safe_load(f)
-        if skill.get("prompt_addon") == "null":
-            skill["prompt_addon"] = None
-        skill.setdefault("is_system", True)
-        skills.append(skill)
+        raw = yaml.safe_load(path.read_text())
+        if not isinstance(raw, dict):
+            raise ValueError(f"{path.name}: expected a YAML mapping, got {type(raw).__name__}")
+        is_system = raw.pop("is_system", True)
+        try:
+            validated = SkillCreate.model_validate(raw).model_dump()
+        except ValidationError as exc:
+            raise ValueError(f"{path.name}: invalid skill definition\n{exc}") from exc
+        validated["is_system"] = is_system
+        skills.append(validated)
     return skills
 
 

@@ -11,7 +11,7 @@ pytest tests/unit/ -v
 ```
 
 Tests are unit tests only — no live DB or LLM calls required.
-The 16 tests cover governance, state, and budget logic.
+The 71 tests cover governance, state, and the RAG layer.
 
 ---
 

@@ -23,7 +23,9 @@ if not _SECRET_KEY:
 _ALGORITHM = "HS256"
 _ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Pin the bcrypt work factor explicitly rather than relying on passlib's default,
+# so the security posture is independent of library version changes.
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 
 def _real_ip(request: Request) -> str:
