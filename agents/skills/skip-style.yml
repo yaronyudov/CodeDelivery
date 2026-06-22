@@ -1,0 +1,9 @@
+id: skip-style
+name: Skip Style Review
+description: Disable the style checker specialist.
+kind: agent_toggle
+target_agents:
+  - style
+is_default: false
+is_system: true
+prompt_addon: null

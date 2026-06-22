@@ -1,0 +1,15 @@
+id: require-integration-tests
+name: Require Integration Tests
+description: New API endpoints or DB operations must have integration tests against a real Postgres instance.
+kind: prompt_injection
+target_agents:
+  - tester
+is_default: true
+is_system: true
+prompt_addon: |
+  ## Integration test requirements
+  New API endpoints must have at least one integration test using `httpx.AsyncClient` + `TestClient`.
+  New DB repo methods must be tested against a real Postgres test database (not mocks).
+  Tests must clean up their data (use transactions that roll back, or explicit DELETE).
+  Use `pytest-asyncio` with `asyncio_mode = "auto"` for async tests.
+  Integration test files go in `tests/integration/` (separate from `tests/unit/`).

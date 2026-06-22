@@ -2,6 +2,11 @@
 
 > Machine-readable reference for AI coding assistants (Claude Code, Copilot, Cursor, etc.)
 > When a human asks you to modify this project, read this file first.
+>
+> **Keep docs in sync:** when you change behaviour, update the docs it affects in the
+> same commit/PR — this file and the relevant `agents/*.md`. Verify stated facts (test
+> counts, budget ceilings, signatures) still match the code. A change that updates code
+> but not its docs is incomplete. Full mapping: `agents/README.md` → "When you make a change".
 
 ---
 

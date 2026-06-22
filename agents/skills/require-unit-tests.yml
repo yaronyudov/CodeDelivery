@@ -1,0 +1,15 @@
+id: require-unit-tests
+name: Require Unit Tests
+description: Every new function or class must be accompanied by unit tests.
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: true
+is_system: true
+prompt_addon: |
+  ## Unit test requirements
+  Every new function or class must have at least one unit test in `tests/unit/`.
+  Use `pytest` with `pytest-asyncio` for async tests.
+  Mock external calls (LLM, DB, HTTP) — tests must not require live services.
+  Aim for: happy path + one edge case + one error case per function.
+  Test file naming: `test_<module_name>.py`.

@@ -1,0 +1,14 @@
+id: enforce-type-hints
+name: Enforce Type Hints
+description: Require full PEP 484 type annotations on all functions and variables.
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: true
+is_system: true
+prompt_addon: |
+  ## Type hints required
+  Every function must have fully annotated parameter and return types.
+  Use `from __future__ import annotations` at the top of every module.
+  Never use `Any` unless unavoidable; prefer `TypeVar`, `Protocol`, or union types.
+  Run `mypy --strict` mentally before outputting code.

@@ -1,0 +1,31 @@
+# Build & Ship Pipeline
+
+> LangGraph multi-agent pipeline with FastAPI backend and React frontend.
+> 12 LLM agents collaborate to plan, code, test, and review features under a hard budget.
+
+## Agent context
+
+- agents/README.md: Universal entry point for AI coding tools
+- agents/invariants.md: 5 critical LangGraph invariants that must never be violated
+- agents/architecture.md: Pipeline topology, state schema, graph wiring, agent list
+- agents/coding-standards.md: Python and TypeScript coding conventions
+- agents/security.md: 8 authentication and security invariants
+- agents/common-tasks.md: Quick commands for tests, build, seed, dev server
+- agents/skills/: 20 YAML skill definitions seeded to DB as system defaults
+
+## Project reference
+
+- build-ship-pipeline/CLAUDE.md: Full AI agent knowledge base (authoritative)
+- build-ship-pipeline/src/state.py: PipelineState TypedDict and _ALL_AGENTS list
+- build-ship-pipeline/src/graph.py: LangGraph StateGraph wiring
+- build-ship-pipeline/src/governance/governed.py: governed() decorator
+- build-ship-pipeline/src/db/schema.sql: 12-table Postgres schema
+- build-ship-pipeline/config/budget.yaml: Hard cost/token/step ceilings
+- build-ship-pipeline/config/prices.yaml: USD/1K token prices and default models
+
+## Source layout
+
+- build-ship-pipeline/src/: Pipeline core (LangGraph, agents, governance, DB, RAG)
+- build-ship-pipeline/ui/backend/: FastAPI REST + WebSocket API
+- build-ship-pipeline/ui/frontend/src/: React + Vite + Tailwind frontend
+- build-ship-pipeline/tests/unit/: Unit tests (71 tests, no live services required)

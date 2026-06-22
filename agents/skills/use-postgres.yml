@@ -1,0 +1,16 @@
+id: use-postgres
+name: Use PostgreSQL
+description: Use PostgreSQL as the data store; leverage native Postgres features over ORMs.
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: false
+is_system: true
+prompt_addon: |
+  ## PostgreSQL conventions
+  - Use raw SQL with psycopg3 (sync) or asyncpg (async) — no SQLAlchemy ORM.
+  - Add indexes on all foreign keys and query predicates.
+  - Use `RETURNING id` on INSERT statements to avoid a second round-trip.
+  - Keep schema changes in `src/db/schema.sql` — no migration framework.
+  - Use `ON CONFLICT DO NOTHING` or `DO UPDATE` for idempotent upserts.
+  - Corpus names must match `^[a-z0-9_-]{1,64}$` before use in queries.

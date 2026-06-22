@@ -1,0 +1,62 @@
+---
+description: Agent development rules for pipeline agent files
+globs:
+  - build-ship-pipeline/src/agents/**/*.py
+  - build-ship-pipeline/src/graph.py
+  - build-ship-pipeline/src/state.py
+  - build-ship-pipeline/src/governance/**/*.py
+alwaysApply: false
+---
+
+# Agent Development
+
+Read `agents/architecture.md` and `agents/invariants.md` before editing agent files.
+
+## Agent node template
+
+```python
+from src.agents.base import Usage, call_model, inject_skills, model_kwargs_from_state
+from src.state import PipelineState
+
+_SYSTEM = "You are the MyAgent agent. Respond ONLY with valid JSON."
+
+def myagent_node(state: PipelineState, model: str) -> tuple[dict, Usage]:
+    user_msg = f"Input: {state['some_field']}"
+    text, usage = call_model(
+        model,
+        inject_skills(_SYSTEM, state),   # injects skill_context for this agent
+        user_msg,
+        **model_kwargs_from_state(state)
+    )
+    return {"some_output_field": text}, usage
+```
+
+## Add-reducer code check
+
+Before returning from any node, verify the fields:
+
+| Field | Action |
+|-------|--------|
+| `artifacts` | return ONLY new items in a list |
+| `findings` | return ONLY new items in a list |
+| `audit` | return ONLY new items in a list |
+| everything else | return the full new value |
+
+## Wiring a new agent in graph.py
+
+```python
+from src.agents.dev.myagent import myagent_node
+from src.governance.governed import governed
+
+g.add_node("myagent", governed("myagent", db)(myagent_node))
+g.add_edge("previous_node", "myagent")
+g.add_edge("myagent", "next_node")
+```
+
+Also add `"myagent"` to `_ALL_AGENTS` in `src/state.py` and add defaults to `config/prices.yaml`.
+
+## Skills injection
+
+`inject_skills(_SYSTEM, state)` prepends the compiled skill prompt addons for this agent
+from `state["skill_context"]["myagent"]`. It is computed once at run start by
+`_compute_skill_context()` in `ui/backend/runs.py`. Never manually modify `_skill_ctx`.

@@ -1,0 +1,46 @@
+---
+description: Build & Ship Pipeline — core orientation (always active)
+alwaysApply: true
+---
+
+# Build & Ship Pipeline
+
+Read `agents/README.md` and `agents/invariants.md` before editing this project.
+Full reference: `build-ship-pipeline/CLAUDE.md`
+
+## 5 CRITICAL INVARIANTS
+
+**1. Add-reducer** — `artifacts`/`findings`/`audit` return ONLY new items:
+```python
+# WRONG: return {"findings": state["findings"] + [new]}, usage
+# RIGHT: return {"findings": [new]}, usage
+```
+
+**2. governed() wrapper** — every graph node must use it:
+```python
+g.add_node("myagent", governed("myagent", db)(myagent_node))
+```
+
+**3. Budget ceiling** — $5 / 2M tokens / 120 steps. Never suppress `BudgetExceeded`.
+
+**4. Threading** — pipeline runs in `asyncio.to_thread()`. Never call `asyncio.run()` inside pipeline node functions.
+
+**5. Return type** — every node returns `(dict, Usage)`, never just `dict`.
+
+## Security (never violate)
+
+- `SECRET_KEY` from env only; bcrypt cost≥12; httpOnly+secure+samesite JWT cookies
+- Parameterized SQL only — no f-string queries
+- `api_key` stripped from `model_config` before `db.create_run()`
+- CORS `allow_origins` from env var; never `"*"` with credentials
+
+## Keep docs in sync (required)
+
+When you change behaviour, update the docs it affects **in the same PR** — `agents/*.md`,
+`build-ship-pipeline/CLAUDE.md`, and any matching summary in the convention files.
+Verify stated facts (test counts, budget ceilings, signatures) still match the code.
+A change that updates code but not its docs is incomplete.
+
+## Full context
+
+`agents/` folder contains: README, invariants, architecture, coding-standards, security, common-tasks, and 20 system skill YAML files.

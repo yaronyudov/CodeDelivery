@@ -1,0 +1,9 @@
+id: skip-security
+name: Skip Security Review
+description: Disable the security auditor specialist.
+kind: agent_toggle
+target_agents:
+  - security
+is_default: false
+is_system: true
+prompt_addon: null

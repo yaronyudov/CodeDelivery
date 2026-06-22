@@ -1,0 +1,9 @@
+id: skip-docker
+name: Skip Docker
+description: Disable the Docker Compose agent for this run.
+kind: agent_toggle
+target_agents:
+  - docker
+is_default: false
+is_system: true
+prompt_addon: null

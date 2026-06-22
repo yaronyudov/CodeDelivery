@@ -1,0 +1,16 @@
+id: use-typescript
+name: Use TypeScript
+description: All frontend and Node.js code must be TypeScript with strict mode enabled.
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: false
+is_system: true
+prompt_addon: |
+  ## TypeScript rules
+  - `strict: true` in tsconfig.json — no implicit any, strict null checks.
+  - Define interfaces/types for all API responses and component props.
+  - Never use `as any` — use type guards or generics instead.
+  - Use `unknown` instead of `any` for untyped external data, then narrow.
+  - Prefer `interface` for object shapes, `type` for unions/intersections.
+  - All async functions must have explicit return type annotations.

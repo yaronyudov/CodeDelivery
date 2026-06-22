@@ -1,0 +1,37 @@
+# Build & Ship Pipeline — Cline Rules
+
+Read the `agents/` folder at the repo root before making any changes.
+Start with `agents/README.md`, then open the relevant file for your task.
+
+## 5 CRITICAL INVARIANTS
+
+1. **Add-reducer** — `artifacts`/`findings`/`audit` in PipelineState return ONLY new items.
+   Never return the full accumulated list. LangGraph add-reducers merge automatically.
+
+2. **governed() wrapper** — every graph node must use `governed("name", db)(fn)` in graph.py.
+
+3. **Budget ceiling** — $5 / 2M tokens / 120 steps. Never suppress `BudgetExceeded`.
+
+4. **Threading** — pipeline runs in asyncio.to_thread(). Never call asyncio.run() inside
+   pipeline node functions.
+
+5. **Return type** — every node returns `(dict, Usage)`, never just `dict`.
+
+## Security rules (NEVER violate)
+
+- SECRET_KEY from env only; bcrypt cost≥12; httpOnly+secure+samesite JWT cookies
+- Parameterized SQL only — no f-string queries
+- API keys stripped before DB writes
+- CORS never `*` with credentials
+
+## Keep docs in sync (required)
+
+When you change behaviour, update the docs it affects in the same PR (agents/*.md,
+build-ship-pipeline/CLAUDE.md, and any matching summary here). Verify stated facts
+(test counts, budget ceilings, signatures) still match the code. A change that updates
+code but not its docs is incomplete. See agents/README.md → "When you make a change".
+
+## Full context
+
+agents/README.md → agents/invariants.md → agents/architecture.md
+Full reference: build-ship-pipeline/CLAUDE.md

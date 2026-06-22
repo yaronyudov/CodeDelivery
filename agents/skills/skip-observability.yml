@@ -1,0 +1,9 @@
+id: skip-observability
+name: Skip Observability
+description: Disable OTel instrumentation and dashboard generation.
+kind: agent_toggle
+target_agents:
+  - observability
+is_default: false
+is_system: true
+prompt_addon: null

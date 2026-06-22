@@ -1,0 +1,16 @@
+id: use-pydantic-v2
+name: Use Pydantic v2
+description: Enforce Pydantic v2 syntax and patterns for all data models.
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: true
+is_system: true
+prompt_addon: |
+  ## Pydantic v2 rules
+  Use Pydantic v2 syntax only:
+  - `model_config = ConfigDict(...)` not `class Config:`
+  - `model_validate()` not `parse_obj()`, `model_dump()` not `.dict()`
+  - `Field(default=...)` for defaults; `Annotated[T, Field(...)]` for metadata
+  - Validators use `@field_validator` / `@model_validator`, not `@validator`
+  Never import from `pydantic.v1`.

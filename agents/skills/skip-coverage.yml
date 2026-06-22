@@ -1,0 +1,9 @@
+id: skip-coverage
+name: Skip Coverage Review
+description: Disable the test coverage inspector.
+kind: agent_toggle
+target_agents:
+  - coverage
+is_default: false
+is_system: true
+prompt_addon: null

@@ -1,0 +1,15 @@
+id: strict-test-coverage
+name: Strict Test Coverage
+description: Coverage agent must flag any new code path not covered by tests.
+kind: prompt_injection
+target_agents:
+  - coverage
+is_default: true
+is_system: true
+prompt_addon: |
+  ## Coverage requirements
+  Flag any new code path (function, branch, exception handler) not exercised by tests.
+  Minimum thresholds: 80% line coverage, 70% branch coverage for new modules.
+  Critical paths (auth, budget guard, DB writes) require 100% branch coverage.
+  Every error handler (`except` block) must have a test that triggers it.
+  Do not count test code itself toward coverage obligations.
