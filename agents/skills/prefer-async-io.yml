@@ -1,0 +1,14 @@
+id: prefer-async-io
+name: Prefer Async I/O
+description: Use async/await for all I/O-bound operations; avoid blocking calls in coroutines.
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: true
+is_system: true
+prompt_addon: |
+  ## Async I/O rules
+  - I/O-bound operations (HTTP, file, DB) must be async (use httpx, aiofiles, asyncpg/psycopg3 async).
+  - Never call blocking I/O (requests, open(), time.sleep()) inside an async function.
+  - Use `asyncio.to_thread()` to run sync-only libraries from async context.
+  - Never call `asyncio.run()` inside a function that may already be in an event loop.

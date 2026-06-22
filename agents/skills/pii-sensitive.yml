@@ -1,0 +1,17 @@
+id: pii-sensitive
+name: PII Sensitivity
+description: Flag any code that stores, logs, or transmits personally identifiable information without protection.
+kind: prompt_injection
+target_agents:
+  - security
+is_default: true
+is_system: true
+prompt_addon: |
+  ## PII handling rules
+  Flag any code that:
+  - Logs email addresses, IP addresses, user IDs, or other PII.
+  - Stores PII in plaintext (must be encrypted at rest for sensitive fields).
+  - Returns PII in API responses beyond what the caller needs (over-fetching).
+  - Sends PII to third-party analytics or logging services without consent.
+  - Includes PII in URLs (query params or path segments are logged by proxies).
+  Passwords must NEVER appear in any log, response, or error message.

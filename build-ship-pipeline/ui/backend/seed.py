@@ -4,6 +4,7 @@ Usage:
     SEED_USERNAME=admin SEED_PASSWORD=changeme python -m ui.backend.seed
 
 Idempotent — safe to run multiple times.
+Skills are loaded from agents/skills/*.yml at the repo root.
 """
 
 from __future__ import annotations
@@ -19,76 +20,33 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
+import yaml  # noqa: E402
+
 from src.db.repo import PipelineRepo  # noqa: E402
 from ui.backend.auth import hash_password  # noqa: E402
 
-_SYSTEM_SKILLS = [
-    {
-        "id": "skip-docker",
-        "name": "Skip Docker",
-        "description": "Disable the Docker Compose agent for this run.",
-        "kind": "agent_toggle",
-        "target_agents": ["docker"],
-        "prompt_addon": None,
-        "is_default": False,
-        "is_system": True,
-    },
-    {
-        "id": "skip-observability",
-        "name": "Skip Observability",
-        "description": "Disable OTel instrumentation and dashboard generation.",
-        "kind": "agent_toggle",
-        "target_agents": ["observability"],
-        "prompt_addon": None,
-        "is_default": False,
-        "is_system": True,
-    },
-    {
-        "id": "skip-security",
-        "name": "Skip Security Review",
-        "description": "Disable the security auditor specialist.",
-        "kind": "agent_toggle",
-        "target_agents": ["security"],
-        "prompt_addon": None,
-        "is_default": False,
-        "is_system": True,
-    },
-    {
-        "id": "skip-perf",
-        "name": "Skip Performance Review",
-        "description": "Disable the performance analyst specialist.",
-        "kind": "agent_toggle",
-        "target_agents": ["perf"],
-        "prompt_addon": None,
-        "is_default": False,
-        "is_system": True,
-    },
-    {
-        "id": "skip-style",
-        "name": "Skip Style Review",
-        "description": "Disable the style checker specialist.",
-        "kind": "agent_toggle",
-        "target_agents": ["style"],
-        "prompt_addon": None,
-        "is_default": False,
-        "is_system": True,
-    },
-    {
-        "id": "skip-coverage",
-        "name": "Skip Coverage Review",
-        "description": "Disable the test coverage inspector.",
-        "kind": "agent_toggle",
-        "target_agents": ["coverage"],
-        "prompt_addon": None,
-        "is_default": False,
-        "is_system": True,
-    },
-]
+_SKILLS_DIR = Path(__file__).parent.parent.parent / "agents" / "skills"
+
+
+def _load_skill_definitions() -> list[dict]:
+    skills = []
+    for path in sorted(_SKILLS_DIR.glob("*.yml")):
+        with path.open() as f:
+            skill = yaml.safe_load(f)
+        if skill.get("prompt_addon") == "null":
+            skill["prompt_addon"] = None
+        skill.setdefault("is_system", True)
+        skills.append(skill)
+    return skills
 
 
 def seed_skills(db: PipelineRepo) -> None:
-    """Insert built-in system skills. Idempotent — skips existing IDs."""
-    for skill in _SYSTEM_SKILLS:
+    """Insert built-in system skills from agents/skills/*.yml. Idempotent — skips existing IDs."""
+    skills = _load_skill_definitions()
+    if not skills:
+        print(f"WARNING: No skill YAML files found in {_SKILLS_DIR}")
+        return
+    for skill in skills:
         existing = db.get_skill(skill["id"])
         if existing:
             print(f"Skill '{skill['id']}' already exists. Skipping.")

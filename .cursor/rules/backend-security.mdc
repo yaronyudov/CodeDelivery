@@ -1,0 +1,68 @@
+---
+description: Security rules for FastAPI backend files
+globs:
+  - build-ship-pipeline/ui/backend/**/*.py
+alwaysApply: false
+---
+
+# Backend Security
+
+Read `agents/security.md` before editing backend files.
+
+## 8 security invariants — check every edit
+
+**1. SECRET_KEY from env only**
+```python
+SECRET_KEY = os.environ["SECRET_KEY"]   # server refuses to start if unset
+```
+
+**2. bcrypt cost ≥ 12**
+```python
+pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=12)
+```
+
+**3. JWT cookies: httpOnly + secure + samesite=strict**
+```python
+response.set_cookie(key="access_token", value=token,
+    httponly=True, secure=True, samesite="strict")
+```
+
+**4. Constant-time auth error messages**
+```python
+# Always the same message, regardless of whether user exists or password is wrong
+raise HTTPException(status_code=401, detail="Invalid credentials")
+```
+
+**5. Strip api_key before DB write**
+```python
+safe_config = {k: v for k, v in model_config.items() if k != "api_key"}
+run_id = db.create_run(user.user_id, request.feature_request, safe_config)
+```
+
+**6. Verify WebSocket run ownership before accept()**
+```python
+run = db.get_run(run_id, user.user_id)   # includes user_id filter
+if not run:
+    await websocket.close(code=4004); return
+await websocket.accept()
+```
+
+**7. Rate limiting on real client IP, not proxy IP**
+Key on `X-Real-IP` / `X-Forwarded-For`. 5 login attempts per 15 minutes.
+
+**8. CORS never `*` with credentials**
+```python
+allow_origins=os.environ.get("ALLOWED_ORIGINS", "").split(",")
+# NEVER: allow_origins=["*"] with allow_credentials=True
+```
+
+## SQL safety
+```python
+# ALWAYS parameterized
+cursor.execute("SELECT * FROM runs WHERE id = %s AND user_id = %s", (run_id, user_id))
+# NEVER f-strings:
+cursor.execute(f"SELECT * FROM runs WHERE id = {run_id}")
+```
+
+## Passwords and PII
+Never log passwords, JWTs, API keys, or PII. Redact before any log statement.

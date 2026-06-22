@@ -1,0 +1,16 @@
+id: pipeline-awareness
+name: Pipeline Awareness
+description: Reminds every agent of the 5 critical LangGraph invariants before responding.
+kind: prompt_injection
+target_agents: []
+is_default: true
+is_system: true
+prompt_addon: |
+  ## Pipeline invariants — read before responding
+  You operate inside a LangGraph multi-agent pipeline.
+  1. REDUCER RULE: Return ONLY new items for list fields (artifacts/findings/audit use
+     add-reducers). Never return the full accumulated list — LangGraph merges automatically.
+  2. WRAPPER: The governed() decorator wraps your call. Never bypass it.
+  3. BUDGET: A hard cost/token ceiling is enforced per run. Be concise.
+  4. RETURN TUPLE: Always return (dict, Usage) — not just dict.
+  5. JSON ONLY: Respond ONLY with valid JSON exactly as specified. No prose, no fences.

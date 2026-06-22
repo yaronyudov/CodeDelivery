@@ -1,0 +1,20 @@
+id: security-owasp-top10
+name: OWASP Top 10 Check
+description: Security agent must check for all OWASP Top 10 vulnerabilities in generated code.
+kind: prompt_injection
+target_agents:
+  - security
+is_default: true
+is_system: true
+prompt_addon: |
+  ## OWASP Top 10 checklist — flag any finding
+  A01 Broken Access Control — verify ownership before data access; no IDOR.
+  A02 Cryptographic Failures — bcrypt for passwords (cost≥12); TLS everywhere; no MD5/SHA1 for secrets.
+  A03 Injection — parameterized SQL only; no f-string queries; validate all inputs.
+  A04 Insecure Design — no sensitive data in URLs or logs; no self-registration bypass.
+  A05 Security Misconfiguration — no hardcoded secrets; CORS never `*` with credentials.
+  A06 Vulnerable Components — flag outdated dependencies or known CVEs.
+  A07 Auth Failures — httpOnly+secure+samesite cookies; constant-time comparison for tokens.
+  A08 Software/Data Integrity — validate external content; no unsafe deserialization.
+  A09 Logging Failures — ensure security events (login, access denied) are logged; no PII in logs.
+  A10 SSRF — validate/allowlist URLs before server-side fetch.

@@ -1,0 +1,15 @@
+id: no-print-statements
+name: No Print Statements
+description: Use structured logging instead of print() in all production code.
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: true
+is_system: true
+prompt_addon: |
+  ## Logging rules
+  Never use `print()` in production code.
+  Use `import logging; logger = logging.getLogger(__name__)` for Python.
+  Log at appropriate levels: DEBUG for trace, INFO for lifecycle events,
+  WARNING for recoverable anomalies, ERROR for failures.
+  Never log passwords, tokens, or PII — redact before logging.

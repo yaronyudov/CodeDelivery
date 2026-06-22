@@ -1,0 +1,16 @@
+id: use-fastapi
+name: Use FastAPI
+description: Build all backend APIs with FastAPI (Pydantic v2 models, dependency injection, async routes).
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: false
+is_system: true
+prompt_addon: |
+  ## FastAPI conventions
+  - All route handlers must be `async def`.
+  - Request/response bodies must be Pydantic v2 models.
+  - Use `Depends()` for authentication, DB connections, and shared services.
+  - Register routers with `app.include_router(router, prefix="/api/...")`.
+  - Return `JSONResponse` only for error responses — success returns model instances.
+  - Use `HTTPException` with appropriate status codes (422 for validation, 401/403 for auth).

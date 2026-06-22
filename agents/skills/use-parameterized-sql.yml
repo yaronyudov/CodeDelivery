@@ -1,0 +1,16 @@
+id: use-parameterized-sql
+name: Parameterized SQL Only
+description: All SQL queries must use parameterized placeholders, never f-strings or string concatenation.
+kind: prompt_injection
+target_agents:
+  - coder
+is_default: true
+is_system: true
+prompt_addon: |
+  ## SQL safety rules
+  NEVER build SQL queries with f-strings or string concatenation.
+  ALWAYS use parameterized queries:
+  - psycopg3: `cursor.execute("SELECT ... WHERE id = %s", (user_id,))`
+  - asyncpg: `await conn.fetch("SELECT ... WHERE id = $1", user_id)`
+  Column/table names cannot be parameterized — validate them against an allowlist.
+  Corpus names and identifiers used in queries must match `^[a-z0-9_-]{1,64}$`.
